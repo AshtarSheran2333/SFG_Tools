@@ -1,0 +1,6 @@
+*.f90 text eol=lf
+*.sh text eol=lf
+*.txt text eol=lf
+*.f90 text eol=lf
+*.md text eol=lf
+BOXDATA text eol=lf
