@@ -1,9 +1,5 @@
 program interf
 
-#ifdef _OPENMP
-use omp_lib
-#endif
-
 use SFG_TYPES
 use bdata
 use SFG_FRAMES
@@ -23,9 +19,7 @@ real*8, dimension (:,:,:), allocatable ::                   points
 
 real*8, dimension(:,:), allocatable ::                      density_function
 !holds up all the density functions (distance,density,updensity,downdensity)
-
-real*8, dimension(:), allocatable ::                        backup_density_axis
-
+real*8, dimension(:), allocatable ::						density_axis
 
 real*8, dimension(3) ::                                     prev_rod_pos,&
 															rod_pos,&
@@ -140,7 +134,7 @@ print*, bd%density_min_r, "to", bd%density_max_r
 print*, ""
 print*, "number of bins in 1 A:", bd%density_bin
 print*, ""
-print*, "width of bin (Angstrom): ", bd%density_tol
+print*, "width of bin (Angstrom): ", 2*bd%density_tol
 print*, ""
 print*, "_______________________________________________________________________________"
 
@@ -160,18 +154,32 @@ if(ierr .ne. 0) then
 	stop
 end if
 	
-open (newunit = f_interfacebin, FILE = "interface.bin", form = "unformatted", access="stream", convert = 'big_endian', iostat = ierr)
-if(ierr .ne. 0) then
-	print*, "ERROR: unable to create file called 'interface.bin'" 
-	stop
+if(bd%cancel_interface_calculation == .true.) then
+	!if canceled calculation, create file
+	open (newunit = f_interfacebin, FILE = "interface.bin", form = "unformatted", access="stream", convert = 'big_endian', iostat = ierr)
+	if(ierr .ne. 0) then
+		print*, "ERROR: unable to create file called 'interface.bin'" 
+		stop
+	end if
+else
+	!else open
+	open (newunit = f_interfacebin, FILE = "interface.bin", form = "unformatted", access="stream", convert = 'big_endian', status = 'old', action = 'read', iostat = ierr)
+	if(ierr .ne. 0) then
+		print*, "ERROR: unable to open 'interface.bin'" 
+		stop
+	end if
 end if
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! density file preparation
 nop=(bd%density_max_r-bd%density_min_r)*bd%density_bin+1
 
-allocate (density_function(nop,4))
-allocate (backup_density_axis(nop))
+allocate (density_function(nop,3))
+allocate (density_axis(nop))
 density_function = 0
 
+do i=1,nop
+	density_axis(i)=(real(i,8)-1)/bd%density_bin+bd%density_min_r
+end do
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -229,122 +237,127 @@ do step = 0, bd%NSTEP-1, bd%INTERFACE_SKIP
 		print*, "_______________________________________________________________________________"
 	end if
 	
-	!poking rod through all grid points
-	!$OMP PARALLEL DEFAULT(NONE) SHARED(n_points, bd, prev_index, points, fr, step, rod_start) PRIVATE( i, j, k, m, s, found_uper_interface, found_bottom_interface, rod_pos, pdiff, p, diff, r, prev_pdiff, prev_rod_pos, errmsg )
-	!$OMP DO
-	do i=0,n_points(1)
-
-		do j=0,n_points(2)
-		
-			found_uper_interface= .false.
-			found_bottom_interface= .false.
-			
-			rod_pos = rod_start
-			pdiff = bd%interface_density*waterDensity
-
-			!poking rod from bottom
-			do k=max(0,prev_index(i,j,2)-bd%INTERFACE_PUSHBACK) ,n_points(3)
-				prev_rod_pos = rod_pos
-				rod_pos = bd%interface_volume_element*((/i,j,k/))+rod_start
-		
-				!evaluate p
-				p=0
-		
-				do m=1, bd%NO
-					diff = fr%molecule(m)%o%position - rod_pos
-					!pbc correction              
-					do s=1,2
-						if (diff(s) > bd%box_dimensions(s)/2.0) then
-							diff(s) = diff(s) - bd%box_dimensions(s)
-						else if (diff(s) < -bd%box_dimensions(s)/2.0) then
-							diff(s) = bd%box_dimensions(s) + diff(s)
-						end if
-					end do
-
-					r = norm2(diff)
-					if (r<=3*E) then !after 3 sigma cut off ... the value would be too small to include and it is expesnive to calculate exp...
-						p = p + exp(-r**2/(2*E**2))/((2*pi*E**2)**1.5)
-					end if  
-				end do
-		
-				!shaping the p
-				prev_pdiff = pdiff
-				pdiff = abs(bd%interface_density*waterDensity - p)
-		
-				!if the positive derivative is found ams the function has value lower than tollerance which is a number close to zero -> we have found the interface
-				if(prev_pdiff < tollerance) then
-					if(pdiff > prev_pdiff) then
-						found_bottom_interface = .true.
-						points(i,j,2) = prev_rod_pos(3)
-						prev_index(i,j,2) = k - 1
-						exit
-					end if
-				end if
-			end do
-			
-			rod_pos = rod_start
-			pdiff = bd%interface_density*waterDensity
-
-			!poking rod from top
-			do k=min(n_points(3), prev_index(i,j,1)+bd%INTERFACE_PUSHBACK),0,-1
-				prev_rod_pos = rod_pos
-				rod_pos = bd%interface_volume_element*((/i,j,k/))+rod_start
-		
-				!evaluate p
-				p=0
-		
-				do m=1, bd%NO
-					diff = fr%molecule(m)%o%position - rod_pos
-					!pbc correction              
-					do s=1,2
-						if (diff(s) > bd%box_dimensions(s)/2.0) then
-							diff(s) = diff(s) - bd%box_dimensions(s)
-						else if (diff(s) < -bd%box_dimensions(s)/2.0) then
-							diff(s) = bd%box_dimensions(s) + diff(s)
-						end if
-					end do
-
-					r = norm2(diff)
-					if (r<=3*E) then !after 3 sigma cut off ... the value would be too small to include and it is expesnive to calculate exp...
-						p = p + exp(-r**2/(2*E**2))/((2*pi*E**2)**1.5)
-					end if  
-				end do
-		
-				prev_pdiff = pdiff
-				pdiff = abs(bd%interface_density*waterDensity - p)
-
-				!if the positive derivative is found ams the function has value lower than tollerance which is a number close to zero -> we have found the interface
-				if(prev_pdiff < tollerance) then
-					if(pdiff > prev_pdiff) then
-						found_uper_interface = .true.
-						points(i,j,1) = prev_rod_pos(3)
-						prev_index(i,j,1) = k + 1
-						exit
-					end if
-				end if
-			end do
-			
-			!checks if program found both interfaces
+	if(bd%cancel_interface_calculation .eq. .true.) then
+		call read_interface_frame()
+	else
+		!get the interface
+		!poking rod through all grid points
+		!$OMP PARALLEL DEFAULT(NONE) SHARED(n_points, bd, prev_index, points, fr, step, rod_start) PRIVATE( i, j, k, m, s, found_uper_interface, found_bottom_interface, rod_pos, pdiff, p, diff, r, prev_pdiff, prev_rod_pos, errmsg )
+		!$OMP DO
+		do i=0,n_points(1)
 	
-			if((found_uper_interface .and. found_bottom_interface) == .false.) then
-				if((found_uper_interface .or. found_bottom_interface) == .false.) then
-					errmsg = " program did not find neither the lower nor the upper interface"
-				else if(found_bottom_interface == .false.) then
-					errmsg = " program did not find the lower interface"
-				else if(found_uper_interface == .false.) then
-					errmsg = " program did not find the upper interface"
-				end if
-		
-				print "(A,i10,A)", "in step n: ", step+1, errmsg
-		
-				stop
-			end if 
+			do j=0,n_points(2)
 			
-		end do
+				found_uper_interface= .false.
+				found_bottom_interface= .false.
+				
+				rod_pos = rod_start
+				pdiff = bd%interface_density*waterDensity
+	
+				!poking rod from bottom
+				do k=max(0,prev_index(i,j,2)-bd%INTERFACE_PUSHBACK) ,n_points(3)
+					prev_rod_pos = rod_pos
+					rod_pos = bd%interface_volume_element*((/i,j,k/))+rod_start
+			
+					!evaluate p
+					p=0
+			
+					do m=1, bd%NO
+						diff = fr%molecule(m)%o%position - rod_pos
+						!pbc correction              
+						do s=1,2
+							if (diff(s) > bd%box_dimensions(s)/2.0) then
+								diff(s) = diff(s) - bd%box_dimensions(s)
+							else if (diff(s) < -bd%box_dimensions(s)/2.0) then
+								diff(s) = bd%box_dimensions(s) + diff(s)
+							end if
+						end do
+	
+						r = norm2(diff)
+						if (r<=3*E) then !after 3 sigma cut off ... the value would be too small to include and it is expesnive to calculate exp...
+							p = p + exp(-r**2/(2*E**2))/((2*pi*E**2)**1.5)
+						end if  
+					end do
+			
+					!shaping the p
+					prev_pdiff = pdiff
+					pdiff = abs(bd%interface_density*waterDensity - p)
+			
+					!if the positive derivative is found ams the function has value lower than tollerance which is a number close to zero -> we have found the interface
+					if(prev_pdiff < tollerance) then
+						if(pdiff > prev_pdiff) then
+							found_bottom_interface = .true.
+							points(i,j,2) = prev_rod_pos(3)
+							prev_index(i,j,2) = k - 1
+							exit
+						end if
+					end if
+				end do
+				
+				rod_pos = rod_start
+				pdiff = bd%interface_density*waterDensity
+	
+				!poking rod from top
+				do k=min(n_points(3), prev_index(i,j,1)+bd%INTERFACE_PUSHBACK),0,-1
+					prev_rod_pos = rod_pos
+					rod_pos = bd%interface_volume_element*((/i,j,k/))+rod_start
+			
+					!evaluate p
+					p=0
+			
+					do m=1, bd%NO
+						diff = fr%molecule(m)%o%position - rod_pos
+						!pbc correction              
+						do s=1,2
+							if (diff(s) > bd%box_dimensions(s)/2.0) then
+								diff(s) = diff(s) - bd%box_dimensions(s)
+							else if (diff(s) < -bd%box_dimensions(s)/2.0) then
+								diff(s) = bd%box_dimensions(s) + diff(s)
+							end if
+						end do
+	
+						r = norm2(diff)
+						if (r<=3*E) then !after 3 sigma cut off ... the value would be too small to include and it is expesnive to calculate exp...
+							p = p + exp(-r**2/(2*E**2))/((2*pi*E**2)**1.5)
+						end if  
+					end do
+			
+					prev_pdiff = pdiff
+					pdiff = abs(bd%interface_density*waterDensity - p)
+	
+					!if the positive derivative is found ams the function has value lower than tollerance which is a number close to zero -> we have found the interface
+					if(prev_pdiff < tollerance) then
+						if(pdiff > prev_pdiff) then
+							found_uper_interface = .true.
+							points(i,j,1) = prev_rod_pos(3)
+							prev_index(i,j,1) = k + 1
+							exit
+						end if
+					end if
+				end do
+				
+				!checks if program found both interfaces
 		
-	end do
-	!$OMP END DO
-	!$OMP END PARALLEL
+				if((found_uper_interface .and. found_bottom_interface) == .false.) then
+					if((found_uper_interface .or. found_bottom_interface) == .false.) then
+						errmsg = " program did not find neither the lower nor the upper interface"
+					else if(found_bottom_interface == .false.) then
+						errmsg = " program did not find the lower interface"
+					else if(found_uper_interface == .false.) then
+						errmsg = " program did not find the upper interface"
+					end if
+			
+					print "(A,i10,A)", "in step n: ", step+1, errmsg
+			
+					stop
+				end if 
+				
+			end do
+		
+		end do
+		!$OMP END DO
+		!$OMP END PARALLEL
+	end if
 	
 	call frame_density_function()
 	!instead of skipping frames calculate density file with all of them
@@ -358,7 +371,10 @@ do step = 0, bd%NSTEP-1, bd%INTERFACE_SKIP
 	if(vmdout) then 
 		call vmd_out()
 	end if
-	call bin_out()
+	
+	if(bd%cancel_interface_calculation == .false.) then
+		call bin_out()
+	end if
 	!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 end do
 
@@ -695,76 +711,82 @@ function pbc_check(vector,box_dimensions)
 
 end function pbc_check
 
-subroutine frame_density_function()
+subroutine frame_density_function
+	integer :: x,y,x1,y1 !the position in the grid
+	real*8 :: uz, dz !interface z value at position
+	real*8 :: xgrid, ygrid, xt, yu
+	real*8, dimension(3) :: diff
 
 	!$OMP PARALLEL DEFAULT(SHARED)
-	!$OMP DO PRIVATE(urmin, drmin, i, j, diff, r, uzdiff, dzdiff, u) REDUCTION(+:density_function)
+	!$OMP DO PRIVATE(m, diff, xgrid, ygrid, xt, yu, x, y, x1, y1, uz, dz) REDUCTION(+:density_function)
 	do m=1,bd%NO
-		urmin=1000
-		drmin=1000
-	  
-		do i = 0, n_points(1)
-			do j = 0, n_points(2)
-				!up
-				
-				diff = (/bd%interface_volume_element(1)*i+rod_start(1), bd%interface_volume_element(2)*j+rod_start(2), points(i,j,1)/) - fr%molecule(m)%o%position
-				
-				!diff = (/bd%interface_volume_element(1)*ij_array(1,i)+rod_start(1), bd%interface_volume_element(2)*ij_array(2,j)+rod_start(2), points(ij_array(1,i),ij_array(2,j),1)/) - fr%molecule(m)%o%position
-				diff = pbc_check(diff, bd%box_dimensions)
-				
-				r=norm2(diff)
-				if (r<urmin) then
-					urmin=r
-					uzdiff=diff(3)
-				end if
-				! down
-				
-				diff = (/bd%interface_volume_element(1)*i+rod_start(1), bd%interface_volume_element(2)*j+rod_start(2), points(i,j,2)/) - fr%molecule(m)%o%position
-				!diff = (/bd%interface_volume_element(1)*ij_array(1,i)+rod_start(1), bd%interface_volume_element(2)*ij_array(2,j)+rod_start(2), points(ij_array(1,i),ij_array(2,j),2)/) - fr%molecule(m)%o%position
-				diff = pbc_check(diff, bd%box_dimensions)
-
-				r=norm2(diff)
-				if (r<drmin) then
-					drmin=r
-					dzdiff=diff(3)
-				end if
-			
-			end do
-		end do
+		diff = pbc_check(fr%molecule(m)%o%position, bd%box_dimensions)
 		
-		if (uzdiff<0) then
-			urmin=-urmin
+		!find where the molecule belongs
+		!X
+		if( (diff(1) <= rod_start(1)) .or. (diff(1) > rod_start(1)+(n_points(1)+1)*bd%interface_volume_element(1)) ) then
+			x = -1
+		else
+			x = ((diff(1)-rod_start(1)) / bd%interface_volume_element(1))
+			x1 = x + 1
 		end if
-		if (dzdiff>0) then
-			drmin=-drmin
+		!Y
+		if( (diff(2) <= rod_start(2)) .or. (diff(2) > rod_start(2)+(n_points(2)+1)*bd%interface_volume_element(2)) ) then
+			y = -1	
+		else
+			y = ((diff(2)-rod_start(2)) / bd%interface_volume_element(2))
+			y1 = y + 1
 		end if
-									 ! evaluating density as function rmin
+
+		!now we know where on the grid the molecule lives...
+		!time to get the interface height on the molecules position...
+		
+		xgrid = rod_start(1) + x*bd%interface_volume_element(1)
+		ygrid = rod_start(2) + y*bd%interface_volume_element(2)
+
+		!deal with the edge cases
+		if(x < 0) then
+			x=n_points(1)
+			x1=0
+		end if
+		if(y < 0) then
+			y=n_points(2)
+			y1=0
+		end if
+		if(x1 > n_points(1)) then
+			x1 = n_points(1)
+			x = x1 - 1
+		end if
+		if(y1 > n_points(2)) then
+			y1 = n_points(2)
+			y = y1 - 1
+		end if
+		
+		xt = (diff(1)-xgrid)/(bd%interface_volume_element(1))
+		yu = (diff(2)-ygrid)/(bd%interface_volume_element(2))
+		
+		!interface z
+		uz = (1-xt)*(1-yu)*points(x,y,1) + xt*(1-yu)*points(x1,y,1) + (1-xt)*yu*points(x,y1,1) + xt*yu*points(x1,y1,1) 
+		dz = (1-xt)*(1-yu)*points(x,y,2) + xt*(1-yu)*points(x1,y,2) + (1-xt)*yu*points(x,y1,2) + xt*yu*points(x1,y1,2) 
+		!distance from the interface
+		uz = uz - diff(3)
+		dz = diff(3) - dz
+		
+		! evaluating density function
 		do i=1,nop
-			u=i-1
-			density_function(i,1)=u/bd%density_bin+bd%density_min_r
-			if (urmin >= (density_function(i,1) - bd%density_tol) .and. (urmin < density_function(i,1)+bd%density_tol)) then
+			if (uz >= (density_axis(i) - bd%density_tol) .and. (uz < density_axis(i)+bd%density_tol)) then
+				density_function(i,1) = density_function(i,1) + 1
 				density_function(i,2) = density_function(i,2) + 1
+			end if
+			if (dz >= (density_axis(i) - bd%density_tol) .and. (dz < density_axis(i) + bd%density_tol)) then
+				density_function(i,1) = density_function(i,1) + 1
 				density_function(i,3) = density_function(i,3) + 1
 			end if
-			if (drmin >= (density_function(i,1) - bd%density_tol) .and. (drmin < density_function(i,1) + bd%density_tol)) then
-				density_function(i,2) = density_function(i,2) + 1
-				density_function(i,4) = density_function(i,4) + 1
-			end if
 		end do
-		
-		!this is ugly... but it was the fastest to implement... this code should be refactored...
-#ifdef _OPENMP
-		if(omp_get_thread_num() == 0) then
-			backup_density_axis = density_function(:,1)
-		end if
-#else
-			backup_density_axis = density_function(:,1)
-#endif
-
 	end do
 	!$OMP END DO
 	!$OMP END PARALLEL
-	
+
 end subroutine frame_density_function
 
 subroutine evaluate_density_function()
@@ -780,15 +802,58 @@ subroutine evaluate_density_function()
 	
 	do i=1,nop
 		!print*, "dist: ", dist(i)
-		density_function(i,1) = backup_density_axis(i)
-		density_function(i,2) = density_function(i,2) / (bd%NSTEP*bd%density_tol*bd%box_dimensions(1)*bd%box_dimensions(2)*4*0.035)
-		density_function(i,3) = density_function(i,3) / (bd%NSTEP*bd%density_tol*bd%box_dimensions(1)*bd%box_dimensions(2)*2*0.035)
-		density_function(i,4) = density_function(i,4) / (bd%NSTEP*bd%density_tol*bd%box_dimensions(1)*bd%box_dimensions(2)*2*0.035)
-		write(f_density_vs_r,*) density_function(i,1) , density_function(i,2), density_function(i,3), density_function(i,4)
+		!reporting number density in N/nm^3
+		density_function(i,1) = ( density_function(i,1) / (bd%NSTEP*bd%density_tol*bd%box_dimensions(1)*bd%box_dimensions(2)*4) ) * 1000
+		density_function(i,2) = ( density_function(i,2) / (bd%NSTEP*bd%density_tol*bd%box_dimensions(1)*bd%box_dimensions(2)*2) ) * 1000
+		density_function(i,3) = ( density_function(i,3) / (bd%NSTEP*bd%density_tol*bd%box_dimensions(1)*bd%box_dimensions(2)*2) ) * 1000
+		write(f_density_vs_r,*) density_axis(i) , density_function(i,1), density_function(i,2), density_function(i,3)
 	end do
 	
 	close(f_density_vs_r)
 	
 end subroutine evaluate_density_function
+
+subroutine read_interface_frame()
+	real*8 :: placeholder
+	integer*8 :: npoint
+	
+	if( (mod(step,bd%INTERFACE_SKIP) == 0) ) then
+		if(bin_header_done == .false.) then
+			read(f_interfacebin, iostat = ierr), npoint
+			if(ierr .ne. 0) then
+				print*, "ERROR: 'interface.bin' does not have enough data inside"
+				stop
+			end if
+			
+			if(npoint .ne. size(points)) then
+				print*, "ERROR: 'interface.bin' does not match the current setup or is corrupted"
+				stop
+			end if
+
+			!reading x,y values of points...
+			do i = 1, size(points)/2
+				read(f_interfacebin, iostat = ierr) placeholder, placeholder
+				if(ierr .ne. 0) then
+					print*, "ERROR: 'interface.bin' does not have enough data inside"
+					stop
+				end if
+			end do
+			bin_header_done = .true.
+		end if
+		
+		!reading the z values of the points...
+			
+		do i = 0, n_points(1)
+			do j = 0, n_points(2)
+				read(f_interfacebin, iostat = ierr) points(i, j, 1), points(i, j, 2)
+				if(ierr .ne. 0) then
+					print*, "ERROR: 'interface.bin' does not have enough data inside"
+					stop
+				end if
+			end do
+		end do
+	end if  
+
+end subroutine read_interface_frame
 
 end program interf

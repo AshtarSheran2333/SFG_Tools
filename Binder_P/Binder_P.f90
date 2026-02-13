@@ -40,8 +40,6 @@ real*8 ::                                                   r,&
 															anglebinwidth,&
 															bottomrmin,&
 															toprmin,&
-															bottomrzmin,&
-															toprzmin,&
 															dipolecos
 !r, lzdiff, lznear, rmin used to hold calculations
 !oih ojh oo dists - for evaluation of hbonds
@@ -58,7 +56,7 @@ integer*8, dimension(0:15) :: layercount,steplayercount
 
 real*8, dimension(0:15,0:15) :: cumulativedonorcount, cumulativeacceptorcount
 
-real*8, dimension(:,:), allocatable :: dipoleanglevsr, dipoleanglevsrz
+real*8, dimension(:,:), allocatable :: dipoleanglevsr
 !size (2, ...) holds dipole angle versus r
 
 integer*8, dimension(:,:,:,:), allocatable ::                   histogram
@@ -79,8 +77,8 @@ integer*8, dimension(:,:,:,:), allocatable ::                   histogram
 
 
 integer*8, dimension(:,:), allocatable ::                   donorCountMatrix,&
-															dipoleanglevsrcounts,&
-															dipoleanglevsrzcounts
+															dipoleanglevsrcounts
+
 ! donorCountMatrix - notation donor-acceptor - for example dL0-dL1 means dL0 donor dL1 acceptor
 !matrix looks like this:
 ! dL0-dL0     dL0-dL1     dL0-dL2     ...     dL0-uL3
@@ -143,6 +141,25 @@ logical ::                                                  hbhist = .false.,&
 															bin_header_done = .FALSE.,&
 															nocheck = .false.,&
 															layerFound = .false.
+
+!technical debt variables
+real*8, dimension(3) ::										rod_start
+
+integer*8, dimension(3) ::									n_points
+
+integer*8 ::												points_index00,&
+															points_index01,&
+															points_index10,&
+															points_index11,&
+															x,&
+															x1,&
+															y,&
+															y1
+
+real*8 ::													xt,&
+															yu,&
+															xgrid,&
+															ygrid
 
 !##########################################EVALUATE PROGRAM SWITCHES###########################################
 
@@ -304,7 +321,14 @@ do step = 0, bd%NSTEP-1
 	! reading interface points
 	if( (mod(step,bd%INTERFACE_SKIP) == 0) ) then
 		if(bin_header_done == .false.) then
+			!first interface read ever
 			read(f_interfacebin), npoint
+			
+			n_points = NINT(bd%box_dimensions/bd%interface_volume_element)
+
+			bd%interface_volume_element = bd%box_dimensions/n_points
+
+			rod_start = -bd%box_dimensions(:)/2.0 + bd%interface_volume_element(:)/2.0
 			
 			!reading x,y values of points...
 			do i = 1, npoint/2
@@ -328,73 +352,74 @@ do step = 0, bd%NSTEP-1
 			dipoleanglevsr = 0
 			allocate(dipoleanglevsrcounts(2, 0:int((bd%dipole_rend-bd%dipole_rstart)/bd%dipole_rbinwidth)-1))
 			dipoleanglevsrcounts = 0
-			allocate(dipoleanglevsrz(2, 0:int((bd%dipole_rend-bd%dipole_rstart)/bd%dipole_rbinwidth)-1))
-			dipoleanglevsrz = 0
-			allocate(dipoleanglevsrzcounts(2, 0:int((bd%dipole_rend-bd%dipole_rstart)/bd%dipole_rbinwidth)-1))
-			dipoleanglevsrzcounts = 0
 	end if
 	
-	!PARALELIZE THIS LOOP
-	!default shared
-	!private rmin, bottomrmin, toprmin, diff, r, i, j, lznear, toprzmin, bottomrmin, bottomrzmin, dipolecos, lzdiff, upordown, rmin, layerFound
-	!reduction dipoleanglevsr, dipoleanglevsrz, dipoleanglevsrcounts, dipoleanglevsrzcounts
-	
 	! check distance of each  molecules from the interface
-!$OMP PARALLEL DEFAULT(SHARED)
-	!$OMP DO PRIVATE(r_index, rmin, bottomrmin, toprmin, diff, r, i, j, m, lznear, toprzmin, bottomrzmin, dipolecos, lzdiff, upordown, layerFound), REDUCTION(+:dipoleanglevsr, dipoleanglevsrz, dipoleanglevsrcounts, dipoleanglevsrzcounts)
+	!$OMP PARALLEL DEFAULT(SHARED)
+	!$OMP DO PRIVATE(r_index, rmin, bottomrmin, toprmin, diff, r, i, j, m, lznear, dipolecos, lzdiff, upordown, layerFound, xt, yu, points_index00, points_index01, points_index10, points_index11, xgrid, ygrid, x, x1, y, y1 ), REDUCTION(+:dipoleanglevsr, dipoleanglevsrcounts)
 	do m=1, bd%NO
 		
-		rmin = 100
+		! new density approach
+		! the whole purpose of this block is to feed the bottomrmin and toprmin variables
+		! todo here will be a technical debt, and I dont care since this whole program is a mess...
+		! the bottomrzmin and toprzmin makes little to no sense... so it will be set to -inf...
+		diff = pbc_check(fr%molecule(m)%o%position, bd%box_dimensions)
+	
+		!find where the molecule belongs
+		!X
+		if( (diff(1) <= rod_start(1)) .or. (diff(1) > rod_start(1)+(n_points(1))*bd%interface_volume_element(1)) ) then
+			x = -1
+		else
+			x = ((diff(1)-rod_start(1)) / bd%interface_volume_element(1))
+			x1 = x + 1
+		end if
+		!Y
+		if( (diff(2) <= rod_start(2)) .or. (diff(2) > rod_start(2)+(n_points(2))*bd%interface_volume_element(2)) ) then
+			y = -1
+		else
+			y = ((diff(2)-rod_start(2)) / bd%interface_volume_element(2))
+			y1 = y + 1
+		end if
+
+		!now we know where on the grid the molecule lives...
+		!time to get the interface height on the molecules position...
+
+		xgrid = rod_start(1) + x*bd%interface_volume_element(1)
+		ygrid = rod_start(2) + y*bd%interface_volume_element(2)
+
+		!deal with the edge cases
+		if(x < 0) then
+			x=n_points(1)-1
+			x1=0
+		end if
+		if(y < 0) then
+			y=n_points(2)-1
+			y1=0
+		end if
+		if(x1 > n_points(1)-1) then
+			x1 = n_points(1)-1
+			x = x1 - 1
+		end if
+		if(y1 > n_points(2)-1) then
+			y1 = n_points(2)-1
+			y = y1 - 1
+		end if
+
+		points_index00 = x*n_points(2) + y + 1
+		points_index01 = x*n_points(2) + y1 + 1
+		points_index10 = x1*n_points(2) + y + 1
+		points_index11 = x1*n_points(2) + y1 + 1
 		
-		bottomrmin = 10000
-		toprmin = 10000
+		xt = (diff(1)-xgrid)/(bd%interface_volume_element(1))
+		yu = (diff(2)-ygrid)/(bd%interface_volume_element(2))
 		
-		do i=1, Npoint/2 !scanning through all the interface points
-			do j = 1,2  !both bottom and top interface
-					
-				diff = (points(i,j,:) - fr%molecule(m)%o%position)
-				diff = pbc_check(diff, bd%box_dimensions)
-			  
-				r = norm2(diff)
-				if (r < rmin) then
-					rmin = r
-					lznear=points(i,j,3)
-				end if
-				
-				!collecting rmin from both interfaces...
-				!for the graph of dipole to [0,0,1] cosine dependent on rmin from both interfaces...
-				
-				if (j == 1) then !if top interface
-					if (r < abs(toprmin)) then
-						
-						toprmin = r
-						toprzmin = points(i,j,3) - fr%molecule(m)%o%position(3)
-						
-						if ( toprzmin < 0) then !if molecule is above the interface...
-							toprmin = -toprmin !make the rmin negative...
-						end if
-						
-					end if
-					
-				else !bottom interface
-					if (r < abs(bottomrmin)) then
-						
-						bottomrmin = r
-						bottomrzmin = fr%molecule(m)%o%position(3) - points(i,j,3)
-						
-						
-						if ( bottomrzmin < 0) then !if molecule is below the interface...
-							bottomrmin = -bottomrmin !make the rmin negative...
-						end if
-						
-					end if
-				end if  
-				
-				!now after each molecule iteration shortest distance from bottom and top interface is known...
-				
-			end do
-		end do
-		
+		!interface z
+		toprmin = (1-xt)*(1-yu)*points(points_index00,1,3) + xt*(1-yu)*points(points_index10,1,3) + (1-xt)*yu*points(points_index01,1,3) + xt*yu*points(points_index11,1,3) 
+		bottomrmin = (1-xt)*(1-yu)*points(points_index00,2,3) + xt*(1-yu)*points(points_index10,2,3) + (1-xt)*yu*points(points_index01,2,3) + xt*yu*points(points_index11,2,3) 
+		!distance from the interface
+		toprmin = toprmin - diff(3)
+		bottomrmin = diff(3) - bottomrmin
+
 		!each molecule will add a contribution to dipole angle vs rmin...
 		
 		!cos of dipole vs [0,0,1] calculation...
@@ -411,58 +436,35 @@ do step = 0, bd%NSTEP-1
 		
 			!from bottom interface
 		
-			!vs rmin from interface...
+			!vs r from interface...
 			r_index = int((bottomrmin-bd%dipole_rstart)/bd%dipole_rbinwidth)
 			!record only if in the boundaries of the array...
-			if(r_index <= int((bd%dipole_rend-bd%dipole_rstart)/bd%dipole_rbinwidth)-1) then 
+			if( (r_index <= int((bd%dipole_rend-bd%dipole_rstart)/bd%dipole_rbinwidth)-1) .and. (r_index >= 0) ) then 
 				dipoleanglevsr(1,r_index) = dipoleanglevsr(1,r_index) + dipolecos
 		
 				dipoleanglevsrcounts(1,r_index) = dipoleanglevsrcounts(1,r_index) + 1
 			end if
-			
-			!vs z distance from interface (like density profile...)
-			r_index = int((bottomrzmin-bd%dipole_rstart)/bd%dipole_rbinwidth)
-			!record only if in the boundaries of the array...
-			if(r_index <= int((bd%dipole_rend-bd%dipole_rstart)/bd%dipole_rbinwidth)-1) then 
-				dipoleanglevsrz(1,r_index) = dipoleanglevsrz(1,r_index) + dipolecos
-		
-				dipoleanglevsrzcounts(1,r_index) = dipoleanglevsrzcounts(1,r_index) + 1
-			end if
 
 			!from top interface
 		
-			!vs rmin from interface...
+			!vs r from interface...
 			r_index = int((toprmin-bd%dipole_rstart)/bd%dipole_rbinwidth)
 			!record only if in the boundaries of the array...
-			if(r_index <= int((bd%dipole_rend-bd%dipole_rstart)/bd%dipole_rbinwidth)-1) then 
+			if( (r_index <= int((bd%dipole_rend-bd%dipole_rstart)/bd%dipole_rbinwidth)-1) .and. (r_index >= 0) ) then 
 				dipoleanglevsr(2,r_index) = dipoleanglevsr(2,r_index) + dipolecos
 		
 				dipoleanglevsrcounts(2,r_index) = dipoleanglevsrcounts(2,r_index) + 1
 			end if
-			
-			!vs z distance from interface (like density profile...)
-			r_index = int((toprzmin-bd%dipole_rstart)/bd%dipole_rbinwidth)
-			!record only if in the boundaries of the array...
-			if(r_index <= int((bd%dipole_rend-bd%dipole_rstart)/bd%dipole_rbinwidth)-1) then 
-				dipoleanglevsrz(2,r_index) = dipoleanglevsrz(2,r_index) + dipolecos
-		
-				dipoleanglevsrzcounts(2,r_index) = dipoleanglevsrzcounts(2,r_index) + 1
-			end if
+
 		end if
 		
-		!continuing the binder black magic which could be changed...
-		lzdiff = lznear - fr%molecule(m)%o%position(3)
-		if (lznear>=zcenter) then !zcenter
+		!binder label assignment
+		if(fr%molecule(m)%o%position(3) >= zcenter) then
 			upordown = 1
-			if (lzdiff<0) then !zcenter
-				rmin=-rmin
-			end if
-		end if
-		if (lznear<zcenter) then !zcenter
+			rmin = toprmin
+		else 
 			upordown = 0
-			if (lzdiff>0) then !zcenter
-				rmin=-rmin
-			end if
+			rmin = bottomrmin
 		end if
 		
 		layerFound = .false.
@@ -492,7 +494,7 @@ do step = 0, bd%NSTEP-1
 		
 	end do
 	!$OMP END DO
-!$OMP END PARALLEL
+	!$OMP END PARALLEL
 		
 	!write a frame into binder.bin
 	do m=1, bd%NO
@@ -718,7 +720,6 @@ if(dipole) then
 	do i = 0, (bd%dipole_rend-bd%dipole_rstart)/bd%dipole_rbinwidth - 1
 		do j = 1,2
 			dipoleanglevsr(j,i) = dipoleanglevsr(j,i)/dipoleanglevsrcounts(j,i)
-			dipoleanglevsrz(j,i) = dipoleanglevsrz(j,i)/dipoleanglevsrzcounts(j,i)
 		end do
 	end do
 
@@ -728,9 +729,9 @@ if(dipole) then
 		print*, "ERROR: unable to create file 'dipole.dat'" 
 		stop
 	end if
-	write(f_dipole,*) "#r|rz    bottom cos(angle;r)     bottom cos(angle;rz)    top cos(angle;r)     top cos(angle;rz)"
+	write(f_dipole,*) "#r    bottom cos(angle;r)     top cos(angle;r)"
 	do i = 0, (bd%dipole_rend-bd%dipole_rstart)/bd%dipole_rbinwidth - 1
-		write(f_dipole,*) bd%dipole_rstart+(2*i+1)*bd%dipole_rbinwidth/2, dipoleanglevsr(1,i), dipoleanglevsrz(1,i), dipoleanglevsr(2,i), dipoleanglevsrz(2,i)
+		write(f_dipole,*) bd%dipole_rstart+(2*i+1)*bd%dipole_rbinwidth/2, dipoleanglevsr(1,i), dipoleanglevsr(2,i)
 	end do
 	close(f_dipole)
 	

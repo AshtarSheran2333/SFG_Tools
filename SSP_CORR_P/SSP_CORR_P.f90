@@ -1360,18 +1360,18 @@ subroutine fill_A_M(time_index)
 			b = 2
 		end if
 
-		! Mz is calculated
+		! M_R is calculated
 		do n=1,b     ! do on N° oh_bond (=2) X mol
 			do i=1,3     ! do on x,y,z (oh_ref)
-				MZ(m,time_index)=MZ(m,time_index)+( D(n,3,i)*dMdRz(i)*vz(n) )
+				MZ(m,time_index)=MZ(m,time_index)+( D(n,bd%R,i)*dMdRz(i)*vz(n) )
 			end do
 		end do
 		
-		! Axx is calculated
+		! A_PQ is calculated
 		do n=1,b     ! do on N° oh_bond (=2) X mol
 			do i=1,3     ! do on x,y,z (oh_ref)
 				do j=1,3     ! do on x,y,z (oh_ref)
-					AXX(m,time_index)=AXX(m,time_index)+( D(n,1,i)*dAdRz(i,j)*D(n,1,j)*vz(n) )
+					AXX(m,time_index)=AXX(m,time_index)+( D(n,bd%P,i)*dAdRz(i,j)*D(n,bd%Q,j)*vz(n) )
 				end do
 			end do
 		end do

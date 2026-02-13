@@ -7,7 +7,8 @@ implicit none
 		!PRIVATE variables
 		integer, private ::                                 fileUnit,&
 															layersCount = 1
-		
+
+		character(len=3), private ::						polarization = "SSP"	
 		
 		!PUBLIC variables (boxdata parameters)
 		real*8, dimension(3) ::                             box_dimensions = (/-1,-1,-1/),& !Angstrom
@@ -32,7 +33,7 @@ implicit none
 															dipole_rbinwidth = 0.025d0,& !binwidth of dipole_vs_r
 															density_min_r = -4,& !min distance from instasurf A
 															density_max_r = 25,& !min distance from instasurf A
-															density_tol = 0.7,& !density bin epsilon A
+															density_tol = 0,& !density bin epsilon A
 															interface_density = 0.5 !the amount of water bulk density to be IS -
 		
 		integer ::                                          NATOM=-1,& !number of atoms -
@@ -46,8 +47,14 @@ implicit none
 															hbhist_anglediv = 100,& !number of divisions angleend-anglestart
 															hbhist_distdiv = 45,& !number of divisions distend-diststart
 															HBHIST_SKIP=1,& !number of frames skipped when evaluating hydrogen bonds -
-															density_bin = 5 !number of bins in 1 A
-		
+															density_bin = 5, & !number of bins in 1 A
+															!polarization setup variables
+															P = 1, & !chi2_{pqr}
+															Q = 1, & !chi2_{pqr}
+															R = 3 !chi2_{pqr}
+
+		logical ::											cancel_interface_calculation = .false. !interface loads existing binder to bypass the interface calculation to get only the density
+															
 		character(10) ::                                    hydroxyl_metal = "X"
 		
 	contains
@@ -336,6 +343,38 @@ subroutine read_boxdata(this)
 					error = .true.
 				end if
 
+			case("$POLARIZATION")
+				read(this%fileUnit,'(A)') line
+				line = trim(line)
+				line = adjustl(line)
+				
+				do i = 1, len(line)
+					if(line(i:i) >= 'a' .and. line(i:i) <= 'z') then
+						line(i:i) = achar(iachar(line(i:i)) - 32)
+					end if
+				end do
+				
+				select case(line)
+					case ('SSP')
+						this%P=1
+						this%Q=1
+						this%R=3
+						this%polarization = "SSP"	
+
+					case ('PPP')
+						this%P=3
+						this%Q=3
+						this%R=3
+						this%polarization = "PPP"	
+					
+					case default
+						print*, "BOXDATA ERROR: polarization ", line, " is not supported."
+						error = .true.
+				end select
+
+			case("$CANCEL_INTERFACE_CALCULATION")
+				this%cancel_interface_calculation = .true.
+				
 			case("")
 				
 			case default
@@ -437,6 +476,11 @@ subroutine read_boxdata(this)
 		print("(A)"), "WARNING:"
 		print*, "$DENSITY_TOL is negative number - absolute value will be used"
 		this%density_tol = -this%density_tol
+	end if
+	
+	if(this%density_tol .eq. 0) then
+		!adjust the density tol to be 1/(2*density_bin)
+		this%density_tol = 1.0/(2.0*this%density_bin) 
 	end if
 	
 	if(this%NATOM <= 0) then
@@ -633,6 +677,11 @@ subroutine print_recap(this)
 
 	!chars
 	print "(A40,5X,A10)", adjustl("HYDROXYL_METAL"), adjustr(this%hydroxyl_metal)
+	print "(A40,5X,A10)", adjustl("POLARIZATION"), adjustr(this%polarization)
+
+	!logicals
+	print "(A40,5X,L10)", adjustl("CANCEL_INTERFACE_CALCULATION"), this%cancel_interface_calculation
+	
 
 end subroutine print_recap
 

@@ -27,7 +27,7 @@ Additional analysis features are described in the subsections [Dipole analysis](
 ![layer limits](../.figures/layerlimits.svg)
 
 ## Dipole analysis
-The program allows us to calculate average dipole orientation ($\cos(\alpha)$ with respect to distance (both $|\mathbf{r}_{min}|$ and $r_z$ see figure below) from the [instantaneous surface](../programs_description/Interface.md/#calculation-of-instantaneous-surface). Range and fineness of the calculation can be adjusted by setting [$DIPOLE_R_START](../user_guide/files.md/#table-of-all-boxdata-file-parameters), [$DIPOLE_R_END](../user_guide/files.md/#table-of-all-boxdata-file-parameters), and [$DIPOLE_BINWIDTH](../user_guide/files.md/#table-of-all-boxdata-file-parameters) parameters in [the BOXDATA file](../user_guide/files.md/#input-boxdata-file).
+The program allows calculation of average dipole orientation ($\cos(\alpha)$) of water molecules as a function of distance from the [instantaneous surface](../programs_description/Interface.md/#calculation-of-instantaneous-surface). The distance is measured from an interpolated point of the [instantaneous surface](../programs_description/Interface.md/#calculation-of-instantaneous-surface) based on the X-Y position of the molecule. Range and fineness of the calculation can be adjusted by setting [$DIPOLE_R_START](../user_guide/files.md/#table-of-all-boxdata-file-parameters), [$DIPOLE_R_END](../user_guide/files.md/#table-of-all-boxdata-file-parameters), and [$DIPOLE_BINWIDTH](../user_guide/files.md/#table-of-all-boxdata-file-parameters) parameters in [the BOXDATA file](../user_guide/files.md/#input-boxdata-file).
 
 ![dipole analysis](../.figures/dipolevsr.svg)
 
