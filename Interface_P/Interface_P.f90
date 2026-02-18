@@ -154,8 +154,8 @@ if(ierr .ne. 0) then
 	stop
 end if
 	
-if(bd%cancel_interface_calculation == .true.) then
-	!if canceled calculation, create file
+if(bd%cancel_interface_calculation == .false.) then
+	!if calculation is enabled, create file
 	open (newunit = f_interfacebin, FILE = "interface.bin", form = "unformatted", access="stream", convert = 'big_endian', iostat = ierr)
 	if(ierr .ne. 0) then
 		print*, "ERROR: unable to create file called 'interface.bin'" 
