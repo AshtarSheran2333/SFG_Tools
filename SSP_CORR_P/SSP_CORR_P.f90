@@ -940,6 +940,8 @@ end function cross_product
 subroutine get_binder_frame(channel, binder_frame)
 	integer, intent(IN) :: channel
 	integer*1, dimension(:), intent(OUT) :: binder_frame
+	integer :: i
+
 	do i=1,bd%NO,2
 		read(channel, iostat = ierr) binder_frame(i)
 		if(ierr .ne. 0) then

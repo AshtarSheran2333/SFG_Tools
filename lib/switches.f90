@@ -110,5 +110,30 @@ contains
 			stop
 		end if
 	end subroutine getSwitchInteger
+
+	subroutine getSwitchInteger8(counter, option, targetInteger)
+		integer(kind=8), intent(inout) :: counter
+		character, intent(in) :: option
+		integer(kind=8), intent(inout) :: targetInteger
+		character(len = 256) :: arg
+		integer :: ierr
+		counter = counter + 1
+		if(counter > iargc()) then
+			print*, "not enough arguments for -", option
+			stop
+		end if
+		call getarg(counter, arg)
+		if(.not. isFlag(trim(arg))) then
+			read(arg, *, iostat = ierr) targetInteger
+			if(ierr .ne. 0) then
+				print*, trim(arg), " is not a valid option for -", option
+				stop
+			end if
+		else
+			print*, trim(arg), " is not a valid option for -", option
+			stop
+		end if
+	end subroutine getSwitchInteger8
 	
 end module
+
