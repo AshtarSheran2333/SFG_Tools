@@ -947,7 +947,7 @@ subroutine get_binder_frame(channel, binder_frame)
 			stop
 		end if
 		if((i+1) <= bd%no) then
-			binder_frame(i+1) = binder_frame(i) .AND. 7 ! lower nibble
+			binder_frame(i+1) = binder_frame(i) .AND. 15 ! lower nibble
 		end if
 		binder_frame(i) = binder_frame(i) / 16 ! upper nibble
 	end do
