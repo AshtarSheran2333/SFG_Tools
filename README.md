@@ -1,3 +1,21 @@
+> [!WARNING]
+> This is a work in progress branch.
+
+# WORK IN PROGRESS
+In this branch I am working on a generalized, modular file reader and its incorporation to the code.
+Following things needs to be done:
+- [  ] the frame reader module
+    + [  ] trr 
+    + [  ] gro 
+    + [  ] xyz 
+- [  ] Some layer above the reader that will take care of the molecular structure
+    + [  ] probably some indexlike parameters in BOXDATA
+    + [  ] give user responsibility for the indexes, later can be appended to automatically find some structures (it will be pain, since the atomnames are not unified etc...)
+- [  ] Incorporate into all programs
+    + [  ] Interface
+    + [  ] Binder
+    + [  ] SSP_CORR_P (rename to SFG_CORR)
+
 # SFG\_TOOLS - sum-frequency generation spectrum analysis toolkit
 
 Welcome to the **SFG_TOOLS** [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17517850.svg)](https://doi.org/10.5281/zenodo.17517850) documentation.
