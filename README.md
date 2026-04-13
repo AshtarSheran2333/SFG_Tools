@@ -15,6 +15,8 @@ Following things needs to be done:
     + [  ] Interface
     + [  ] Binder
     + [  ] SSP_CORR_P (rename to SFG_CORR)
+- [ ] The programs should be able to somehow backup the results in case of IO errors
+- [ ] Work on the CMakeLists.txt
 
 # SFG\_TOOLS - sum-frequency generation spectrum analysis toolkit
 
