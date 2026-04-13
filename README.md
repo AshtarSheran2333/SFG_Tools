@@ -22,6 +22,8 @@ Following things needs to be done:
 
 Welcome to the **SFG_TOOLS** [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17517850.svg)](https://doi.org/10.5281/zenodo.17517850) documentation.
 
+The code was released in version 1.0.2 with the JCTC article: [10.1021/acs.jctc.5c02160](https://doi.org/10.1021/acs.jctc.5c02160)
+
 This set of programs processes trajectories of water molecules and surface hydroxyls to obtain vibrational sum-frequency generation O-H spectra $\chi^{(2)}(\omega)$.
 
 # Table of Contents
