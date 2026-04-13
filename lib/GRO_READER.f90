@@ -116,11 +116,11 @@ submodule (FRAME_READERS) GRO_READER
         
         if(fr_info%has_velocities) then
             read(fr_file, gro_format, iostat = ierr) &
-                (res_index, res_name, atom_name, atom_index, fr_atoms(i)%position, fr_atoms(i)%velocity, &
+                (res_index, res_name, fr_atoms(i)%name, atom_index, fr_atoms(i)%position, fr_atoms(i)%velocity, &
                 i = 1, fr_info%n_atoms)
         else
             read(fr_file, gro_format, iostat = ierr) &
-                (res_index, res_name, atom_name, atom_index, fr_atoms(i)%position, &
+                (res_index, res_name, fr_atoms(i)%name, atom_index, fr_atoms(i)%position, &
                 i = 1, fr_info%n_atoms)
         end if
         if(ierr .ne. 0) then

@@ -363,12 +363,52 @@ submodule (FRAME_READERS) TRR_READER
         res = .true.
     end function read_forces
 
+    function fill_atom_names(filename) result(res)
+        character(*) :: filename
+        logical :: res
+        integer :: ierr
+        integer(int64) :: natoms
+        character(128) :: dummy_str
+        real(real32) :: dummy_real
+        integer(int32) dummy_int        
+        
+        res = .false.
+
+        write(output_unit,'( "Opening ", A, " file...")') trim(filename)
+
+        open(newunit = fr_file1, file = filename, status = 'old', iostat = ierr)
+        if(ierr .ne. 0) return
+
+        read(fr_file1, "(A)", iostat = ierr) dummy_str !read header str
+        if(ierr .ne. 0) return
+
+        read(fr_file1, *, iostat = ierr) natoms !read natoms
+        if(ierr .ne. 0) return
+        
+        if(natoms .ne. fr_info%n_atoms) return
+        
+        if(.not. allocated(fr_atoms)) return !fr_atoms must be allocated
+        if(size(fr_atoms) .ne. fr_info%n_atoms) return !fr_atoms size must correspond to the file
+        
+        !fill in the atoms
+        read(fr_file1, "(I5,2A5)", iostat = ierr) &
+            (dummy_int, dummy_str, fr_atoms(natoms)%name,&
+            natoms = 1, fr_info%n_atoms)
+
+        if(ierr .ne. 0) return
+        
+        close(fr_file1)
+        
+        res = .true.
+    end function fill_atom_names
+    
     module procedure trr_open_file
         integer :: ierr, file1
         logical :: is_open
         res = -1
 
         ! not necessary, but I want to have the atomnames!
+        ! - should work even if the following line is commented out
         if(.not. present(filename1)) error_stop("trr_open_file must be called with both arguments")
         
         if(allocated(fr_atoms)) then
@@ -405,6 +445,8 @@ submodule (FRAME_READERS) TRR_READER
         
         rewind(fr_file, iostat = ierr) !rewind
         if(ierr .ne. 0) return
+
+        if(.not. fill_atom_names(filename1)) return
 
         res = 0
     end procedure trr_open_file
