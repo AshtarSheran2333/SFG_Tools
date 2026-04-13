@@ -12,8 +12,8 @@ Following things needs to be done:
     + [ ] probably some indexlike parameters in BOXDATA
     + [ ] give user responsibility for the indexes, later can be appended to automatically find some structures (it will be pain, since the atomnames are not unified etc...)
 - [ ] Incorporate into all programs
-    + [ ] Interface
-    + [ ] Binder
+    + [ ] Interface_P (rename to Interface)
+    + [ ] Binder_P (rename to Binder)
     + [ ] SSP_CORR_P (rename to SFG_CORR)
 - [ ] The programs should be able to somehow backup the results in case of IO errors
 - [ ] Work on the CMakeLists.txt
