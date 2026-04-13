@@ -4,10 +4,10 @@
 # WORK IN PROGRESS
 In this branch I am working on a generalized, modular file reader and its incorporation to the code.
 Following things needs to be done:
-- [ ] the frame reader module
-    + [ ] trr 
-    + [ ] gro 
-    + [ ] xyz 
+- [x] the frame reader module
+    + [x] trr 
+    + [x] gro 
+    + [x] xyz 
 - [ ] Some layer above the reader that will take care of the molecular structure
     + [ ] probably some indexlike parameters in BOXDATA
     + [ ] give user responsibility for the indexes, later can be appended to automatically find some structures (it will be pain, since the atomnames are not unified etc...)
