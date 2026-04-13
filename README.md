@@ -4,17 +4,17 @@
 # WORK IN PROGRESS
 In this branch I am working on a generalized, modular file reader and its incorporation to the code.
 Following things needs to be done:
-- [  ] the frame reader module
-    + [  ] trr 
-    + [  ] gro 
-    + [  ] xyz 
-- [  ] Some layer above the reader that will take care of the molecular structure
-    + [  ] probably some indexlike parameters in BOXDATA
-    + [  ] give user responsibility for the indexes, later can be appended to automatically find some structures (it will be pain, since the atomnames are not unified etc...)
-- [  ] Incorporate into all programs
-    + [  ] Interface
-    + [  ] Binder
-    + [  ] SSP_CORR_P (rename to SFG_CORR)
+- [ ] the frame reader module
+    + [ ] trr 
+    + [ ] gro 
+    + [ ] xyz 
+- [ ] Some layer above the reader that will take care of the molecular structure
+    + [ ] probably some indexlike parameters in BOXDATA
+    + [ ] give user responsibility for the indexes, later can be appended to automatically find some structures (it will be pain, since the atomnames are not unified etc...)
+- [ ] Incorporate into all programs
+    + [ ] Interface
+    + [ ] Binder
+    + [ ] SSP_CORR_P (rename to SFG_CORR)
 - [ ] The programs should be able to somehow backup the results in case of IO errors
 - [ ] Work on the CMakeLists.txt
 
