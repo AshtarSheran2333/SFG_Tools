@@ -129,6 +129,49 @@ module SFG_MOL_STRUCT
 
     
     contains
+
+    ! this function returns maximal index, this can be used to check agains frame_reader n_mol to be safe when using those together
+    ! returns maximal index stored in the water, hydroxyl, and other array
+    function sfg_mol_struct_get_max_index() result(res)
+        integer :: res
+        integer :: i,j,k
+        
+        !this is pretty ugly and slow, but whatever
+        
+        !water
+        do i = 1, n_water
+            do j = 1, size(water(i)%chromophores)
+                if(res < water(i)%chromophores(j)%base) res = water(i)%chromophores(j)%base
+                if(res < water(i)%chromophores(j)%actor) res = water(i)%chromophores(j)%actor
+                do k = 1, size(water(i)%chromophores(j)%references)
+                    if(res < water(i)%chromophores(j)%references(k)) res = water(i)%chromophores(j)%references(k)
+                end do
+            end do
+        end do
+        
+        !hydroxyl
+        do i = 1, n_hydroxyl
+            do j = 1, size(hydroxyl(i)%chromophores)
+                if(res < hydroxyl(i)%chromophores(j)%base) res = hydroxyl(i)%chromophores(j)%base
+                if(res < hydroxyl(i)%chromophores(j)%actor) res = hydroxyl(i)%chromophores(j)%actor
+                do k = 1, size(hydroxyl(i)%chromophores(j)%references)
+                    if(res < hydroxyl(i)%chromophores(j)%references(k)) res = hydroxyl(i)%chromophores(j)%references(k)
+                end do
+            end do
+        end do
+
+        !other
+        do i = 1, n_other
+            do j = 1, size(other(i)%chromophores)
+                if(res < other(i)%chromophores(j)%base) res = other(i)%chromophores(j)%base
+                if(res < other(i)%chromophores(j)%actor) res = other(i)%chromophores(j)%actor
+                do k = 1, size(other(i)%chromophores(j)%references)
+                    if(res < other(i)%chromophores(j)%references(k)) res = other(i)%chromophores(j)%references(k)
+                end do
+            end do
+        end do
+
+    end function sfg_mol_struct_get_max_index
     
     subroutine clear_struct()
         if(allocated(water)) deallocate(water)
