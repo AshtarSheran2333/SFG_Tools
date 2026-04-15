@@ -8,9 +8,10 @@ Following things needs to be done:
     + [x] trr 
     + [x] gro 
     + [x] xyz 
-- [ ] Some layer above the reader that will take care of the molecular structure
-    + [ ] probably some indexlike parameters in BOXDATA
-    + [ ] give user responsibility for the indexes, later can be appended to automatically find some structures (it will be pain, since the atomnames are not unified etc...)
+- [x] Some layer above the reader that will take care of the molecular structure
+    + [x] in a separate structure file
+    + [x] struct file format clearly defined
+    + [x] struct format parser should be failproof
 - [ ] Incorporate into all programs
     + [ ] Interface_P (rename to Interface)
     + [ ] Binder_P (rename to Binder)
