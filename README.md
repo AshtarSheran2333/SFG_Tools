@@ -12,12 +12,20 @@ Following things needs to be done:
     + [x] in a separate structure file
     + [x] struct file format clearly defined
     + [x] struct format parser should be failproof
+    + [ ] The MOL should have a better name like GROUP
+    + [ ] User should be able to define multiple GROUP, each GROUP will have an optional name e.g. GROUP CH3
 - [ ] Incorporate into all programs
     + [ ] Interface_P (rename to Interface)
+        -  Since we want to calculate W-C interface, something must be done about it, so it is able to work with various mixtures e.g. water + organic ions
     + [ ] Binder_P (rename to Binder)
+        - there will be two binder files, one for water, second for OTHERS
+        - the molecules or chromophores or whatever "units" of spectrum must be somehow associated to some distance from the interface (probably the COM)
     + [ ] SSP_CORR_P (rename to SFG_CORR)
+        - Enable calculation of multiple correlation functions simultaineously e.g. water L0, water L2-3, other CH3, hydroxyls
 - [ ] The programs should be able to somehow backup the results in case of IO errors
+        - The reader modules should assure this - each function returns some kind of return code -> catch those, backup, abort
 - [ ] Work on the CMakeLists.txt
+- [ ] Update documentation
 
 # SFG\_TOOLS - sum-frequency generation spectrum analysis toolkit
 
