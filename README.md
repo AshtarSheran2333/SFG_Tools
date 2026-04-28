@@ -14,7 +14,7 @@ Following things needs to be done:
     + [x] struct format parser should be failproof
     + [x] The MOL should have a better name like GROUP
     + [x] User should be able to define multiple GROUP, each GROUP will have an optional name e.g. GROUP CH3
-- [ ] Go through the modules and properly setup the interface (public, private, protected, hide the internal subroutines etc.)
+- [ ] Go through the modules and properly setup the interface (public, private, protected, implicit none in all functions and subroutines... hide the internal subroutines etc.)
 - [ ] Incorporate into all programs
     + [ ] Interface_P (rename to Interface)
         -  Since we want to calculate W-C interface, something must be done about it, so it is able to work with various mixtures e.g. water + organic ions

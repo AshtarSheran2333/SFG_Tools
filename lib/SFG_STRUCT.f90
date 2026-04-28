@@ -51,7 +51,7 @@ module SFG_STRUCT
     
     !--------------------------------------------------------------------------
     !
-    !   The group can contain any number of chromophores
+    !   The SFG unit can contain any number of chromophores
     !
     !   e.g. water:
     !   H1 - actor
@@ -75,15 +75,15 @@ module SFG_STRUCT
     !   PAR_ID  BASE    ACTOR   REFERENCE(S) - up to 10
     !   ID      ID      ID      ID  ... ID
     !
-    !   a special group for waters:
+    !   a special group for waters ($WATERS):
     !   PAR_ID  O   H1  H2
     !   ID      ID  ID  ID
     !
-    !   a special group for hydroxyls:
+    !   a special group for hydroxyls ($HYDROXYLS):
     !   chromophore
     !   chromophore
     !
-    !   a special group for others
+    !   a special group for other ($OTHER)
     !   - where user can specify groups as a set of chromophores
     !   - the group can have a name, the groups with the same name will be stored in a separate list
     !   $GROUP          -
@@ -104,7 +104,7 @@ module SFG_STRUCT
     !   chromophore     |
     !   chromophore     |---- CH3 group
     !   chromophore     |
-    !   $GROUP CH3      -
+    !   $GROUP          -
     !   $GROUP MONSTER  -
     !   chromophore     |
     !   chromophore     |
@@ -113,7 +113,7 @@ module SFG_STRUCT
     !   chromophore     |
     !   chromophore     |
     !   chromophore     |
-    !   $GROUP MONSTER  -
+    !   $GROUP          -
     !
     !   this should yield a structure:
     !
@@ -157,10 +157,10 @@ module SFG_STRUCT
                                     STATE_OTHER = 4
     
     integer, private :: file
-    
-    integer, private, parameter :: alloc_chunk = 100
+    integer, private :: line_number
     
     type(structgroup), protected, dimension(:), allocatable :: sfg_structure
+    integer, protected :: sfg_structure_max_index
 
     private :: clear_struct
     private :: read_water
@@ -282,7 +282,7 @@ module SFG_STRUCT
     function read_water(group) result(res)
         type(sfg_unit), intent(inout) :: group
         integer :: res
-        integer :: ID1, ID2, ID3, ID4
+        integer, dimension(4) :: ids
         character(128) :: line
         logical :: is_open
         
@@ -297,25 +297,29 @@ module SFG_STRUCT
 
         read(file, "(A)", iostat = ierr) line
         res = -2; if(ierr .ne. 0) return
+        line_number = line_number + 1
         
-        read(line, *, iostat = ierr) ID1, ID2, ID3, ID4
+        read(line, *, iostat = ierr) ids
         if(ierr .ne. 0) then !incomplete group
             res = -1
             backspace(file) !this can be either another section, or wrong line
+            line_number = line_number - 1
             return
         end if
 
-        group%chromophores(1)%parameters_id = ID1
-        group%chromophores(2)%parameters_id = ID1
+        group%chromophores(1)%parameters_id = ids(1)
+        group%chromophores(2)%parameters_id = ids(1)
         
-        group%chromophores(1)%base = ID2
-        group%chromophores(2)%base = ID2
+        group%chromophores(1)%base = ids(2)
+        group%chromophores(2)%base = ids(2)
         
-        group%chromophores(1)%actor = ID3
-        group%chromophores(2)%actor = ID4
+        group%chromophores(1)%actor = ids(3)
+        group%chromophores(2)%actor = ids(4)
 
-        group%chromophores(1)%references(1) = ID4
-        group%chromophores(2)%references(1) = ID3
+        group%chromophores(1)%references(1) = ids(4)
+        group%chromophores(2)%references(1) = ids(3)
+
+        if(maxval(ids(2:)) > sfg_structure_max_index) sfg_structure_max_index = maxval(ids(2:))
         res = 0
     end function read_water
 
@@ -340,10 +344,12 @@ module SFG_STRUCT
 
         read(file, "(A)", iostat = ierr) line
         res = -2; if(ierr .ne. 0) return
+        line_number = line_number + 1
 
         read(line, *, iostat = ierr) (ids(i), i = 1, max_hydroxyl_references)
         if(i <= 3) then !incomplete chromophore - must have PAR_ID, ACTOR, BASE
             backspace(file)
+            line_number = line_number - 1
             res = -1
             return
         end if
@@ -362,6 +368,7 @@ module SFG_STRUCT
             group%chromophores(1)%references = ids(4:i)
         end if
         
+        if(maxval(ids(2:i)) > sfg_structure_max_index) sfg_structure_max_index = maxval(ids(2:i))
         res = 0
     end function read_simple_chromophore_chgroup
 
@@ -420,6 +427,7 @@ module SFG_STRUCT
         
         read(file, "(A)", iostat = ierr) line 
         res = -2; if(ierr .ne. 0) return 
+        line_number = line_number + 1
         
         line = trim(adjustl(line))
         
@@ -445,14 +453,14 @@ module SFG_STRUCT
                     .or. (trim(adjustl(groupname)) == "$HYDROXYLS")&
                     .or. (trim(adjustl(groupname)) == "$WATERS") ) then
                     
-                    write(err_unit, "(A,' ',A)") "WARNING: SFG_STRUCT invalid groupname $GROUP", trim(groupname)
-                    write(err_unit, "(A)") "Assigned groupname: $UNASSIGNED"
+                    write(error_unit, "(A,' ',A,' (line: ',I0,')')") "WARNING: SFG_STRUCT invalid groupname $GROUP", trim(groupname), line_number
+                    write(error_unit, "(A)") "Assigned groupname: $UNASSIGNED"
                     groupname = "$UNASSIGNED"
                 end if
             case default
                 if( (len_trim(adjustl(W1)) .gt. 0) ) then !not an empty line
                     if( index(trim(adjustl(W1)), '#') .ne. 1 ) then !does not start with #
-                        write(err_unit, "(A,' ',A)") "WARNING: SFG_STRUCT discarded:", trim(line)
+                        write(error_unit, "(A,' ',A,' (line: ',I0,')')") "WARNING: SFG_STRUCT discarded:", trim(line), line_number
                     end if
                 end if
                 res = STATE_NONE
@@ -476,6 +484,8 @@ module SFG_STRUCT
 
         inquire(file, opened = is_open)
         if(is_open) close(file)
+        line_number = 0
+        sfg_structure_max_index = -1
         
         open(newunit = file, file = filename, status = 'old', iostat = ierr)
         res = -2; if(ierr .ne. 0) return
