@@ -21,8 +21,11 @@ Following things needs to be done:
 - [ ] There could be a module for hydrogen bond analysis (3D histograms...) it needs fixing anyway
 - [ ] A general density module (can be reused for both density and dipole)
 - [ ] better BOXDATA module
-    + [ ] better PBC checking (by default origin in 0 0 0, possibility to move the origin...)
+    + [x] better PBC checking (by default origin in 0 0 0, possibility to move the origin...)
 - [ ] Go through the modules and properly setup the interface (public, private, protected, implicit none in all functions and subroutines... hide the internal subroutines etc.)
+    + [x] the functions should have implicit none everywhere
+    + [ ] the interface needs to be properly set (private, public routines)
+    + [ ] SFG_STRUCTURE - what a naming madness - needs to be fixed
 - [ ] Incorporate into all programs
     + [ ] Interface_P (rename to Interface)
         - Since we want to calculate W-C interface, something must be done about it, so it is able to work with various mixtures e.g. water + organic ions
