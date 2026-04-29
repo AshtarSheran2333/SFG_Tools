@@ -453,7 +453,8 @@ module SFG_STRUCT
                     .or. (trim(adjustl(groupname)) == "$HYDROXYLS")&
                     .or. (trim(adjustl(groupname)) == "$WATERS") ) then
                     
-                    write(error_unit, "(A,' ',A,' (line: ',I0,')')") "WARNING: SFG_STRUCT invalid groupname $GROUP", trim(groupname), line_number
+                    write(error_unit, "(A,' ',A,' (line: ',I0,')')") "WARNING: SFG_STRUCT invalid groupname $GROUP",&
+                        trim(groupname), line_number
                     write(error_unit, "(A)") "Assigned groupname: $UNASSIGNED"
                     groupname = "$UNASSIGNED"
                 end if
