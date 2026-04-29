@@ -1,5 +1,6 @@
 program interf
 
+use INTERFACE_UI
 use SFG_TYPES
 use bdata
 use SFG_FRAMES
@@ -445,7 +446,7 @@ subroutine evaluate_switches
 	do i = 1, iargc()
 		call getarg(i, op)
 		if(getflag(trim(op)) == 'h') then
-			call printHelp()
+			call print_help()
 			stop
 		end if
 	end do
@@ -533,40 +534,6 @@ subroutine evaluate_switches
 	end if
 
 end subroutine evaluate_switches
-
-subroutine printHelp()
-
-	print "(a)",		""
-	print "(a)",		"__________________________Help dialog of Interface_____________________________"
-	print "(a,tr8,a)",	""                          
-	print "(a,tr8,a)",	"_____________________________Mandatory options_________________________________"
-	print "(a,tr8,a)",	""
-	print "(a)",		"-I(input) <file1> *<file2>"
-	print "(tr4,a)",		"specifies the input files. Options are:"
-	print "(tr8,a)",			"*.xyz (positions), *.xyz (velocities)"
-	print "(tr8,a)",			"*.gro (positions+velocities)"
-	print "(tr8,a)",			"*.trr, *.gro (one frame - can be only positions)"
-	print "(a)",		""
-	print "(a)",		"___________________________Optional useful options_____________________________"
-	print "(a)",		""
-	print "(a)",	    "-G(good)"
-	print "(tr4,a)",	    "skips checking of the input files"
-	print "(a)",	    ""
-	print "(a)",		"-H(help)"
-	print "(tr4,a)",		"prints this help dialog"
-	print "(a)",		""
-	print "(a)",		"__________________________Optional debugging options___________________________"
-	print "(a)",		""
-	print "(a)",		"WARNING:"
-	print "(tr4,a)",		"These options will create HUGE ASCII files."
-	print "(tr4,a)",		"These options are kept in the code mainly for historical reasons/debugging."
-	print "(a)",		""
-	print "(a)",		"-V(vmdout)"
-	print "(tr4,a)",		"ASCII dump of interface points in .xyz format"
-	print "(a)",		""
-	print "(a)", "for more details see documentation"
-
-end subroutine printHelp
 
 !TODO GARBAGE
 function abs_pbc_check(vector,box_dimensions)
