@@ -4,7 +4,6 @@ use INTERFACE_UI
 use SFG_TYPES
 use bdata
 use SFG_FRAMES
-use switches
 
 implicit none
 
@@ -102,7 +101,7 @@ real*8, parameter ::                                        pi=dacos(-1.d0),&
 
 !##########################################EVALUATE PROGRAM SWITCHES###########################################
 
-call evaluate_switches()
+call evaluate_program_options()
 
 !###############################################################################################################
 
@@ -426,114 +425,6 @@ deallocate(density_function)
 contains
 
 ! evaluate_switches
-! goes through program options and sets the program logic
-subroutine evaluate_switches
-	character(len=256) :: op, arg, arg1
-	character :: option
-	integer(kind=8) :: i,j
-	real(kind=8) :: rl
-	integer*1 ::  layerBoundary_1 = 100,&
-				layerBoundary_2 = 100,& 
-				swap_i1 = 100
-	logical :: OK = .false.
-
-	if(iargc() < 1) then
-		print*, "The program needs to be called with some arguments, see help -h"
-		stop
-	end if
-
-	! is help switch present?
-	do i = 1, iargc()
-		call getarg(i, op)
-		if(getflag(trim(op)) == 'h') then
-			call print_help()
-			stop
-		end if
-	end do
-
-	i = 1
-	do
-		call getarg(i, op)
-		option = getFlag(trim(op))
-
-		select case(option)
-			case('i')
-				call getSwitchString(i, op, arg)
-				! INPUT GRO
-				if(index(arg, '.gro') .ne. 0) then
-					print*, "input file:"
-					print*, ""
-					print"(tr5,a,tr5,a)", ".gro multiple frame file: ", trim(arg)
-					print*, ""
-					allocate(gro)
-					fr => gro
-					call fr%open_file(arg)
-				! INPUT XYZ
-				else if(index(arg, '.xyz') .ne. 0) then
-					call getSwitchString(i, op, arg1)
-					if(index(arg1, '.xyz') .ne. 0) then
-						print*, "input files:"
-						print*, ""
-						print"(tr5,a,tr5,a)", ".xyz position file: ", trim(arg)
-						print"(tr5,a,tr5,a)", ".xyz velocity file: ", trim(arg1)
-						print*, ""
-						allocate(xyz)
-						fr => xyz
-						call fr%open_file(arg, arg1)
-					else
-						print*, "program needs position and velocity .xyz files in order position file velocity file"
-						stop
-					end if
-				! INPUT TRR
-				else if(index(arg, '.trr') .ne. 0) then
-					call getSwitchString(i, op, arg1)
-					if(index(arg1, '.gro') .ne. 0) then
-						print*, "input files:"
-						print*, ""
-						print"(tr5,a,tr5,a)", ".trr trajectory file: ", trim(arg)
-						print"(tr5,a,tr5,a)", ".gro atleast single frame file: ", trim(arg1)
-						print*, ""
-						allocate(trr)
-						fr => trr
-						call fr%open_file(arg, arg1)
-					else
-						print*, "program needs .trr and .gro files in order .trr file .gro file"
-						stop
-					end if
-				else
-					print*, "Unknown input file format: ", trim(arg)
-					stop
-				end if
-
-				if(fr%is_hydroxyl()) then
-					print*, "ERROR: Interface program is not supported for hydroxyl trajectories"
-					stop
-				end if
-				i = i + 1
-			case('g')
-				nocheck = .true.
-				i = i + 1
-			case('v')
-				vmdout = .true.
-				i = i + 1
-			case default
-				print*, "skipping invalid option ", trim(op)
-				i = i + 1
-		end select
-
-		! all the switches were evaluated
-		if(i > iargc()) exit
-	end do
-
-	print*, ""
-
-	! check if all the mandatory options were selected
-	if(.not. associated(fr)) then
-		print*, "input file(s) must be specified, see help -h"
-		stop
-	end if
-
-end subroutine evaluate_switches
 
 !TODO GARBAGE
 function abs_pbc_check(vector,box_dimensions)

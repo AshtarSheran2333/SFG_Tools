@@ -1,36 +1,37 @@
 ! module to handle program switches
 	
-module switches
+module SWITCHES
+	use UTILS_ERROR
+    implicit none
+    
+#include "utils_error_macros.h"
 
 contains
-	! isFlag(arg)
+	!TODO private funcion
+	! is_flag(arg)
 	! arg - string
 	! returns .true. if string starts with '-' and is longer than 2 characters
-	logical function isFlag(flag)
+	logical function is_flag(flag)
 		character(len=*), intent(IN) :: flag
 
-		isFlag = .false.
+		is_flag = .false.
 
-		if(flag(1:1) == '-') then
-			 isFlag = .true.
-		end if 
+		if(flag(1:1) == '-') is_flag = .true.
+		if(len(flag) < 2) is_flag = .false.
+	end function is_flag
 
-		if(len(flag) < 2) isFlag = .false.
-
-	end function isFlag
-
-	! getFlag(arg)
+	! get_flag(arg)
 	! arg - string
 	! if arg is a switch returns second character after '-', else returns '*'
-	character function getFlag(arg)
+	character function get_flag(arg)
 		character(len=*) :: arg
 
-		if(isFlag(arg)) then
-			getFlag = lowercase(arg(2:2))
+		if(is_flag(arg)) then
+			get_flag = lowercase(arg(2:2))
 		else
-			getFlag = '*'
+			get_flag = '*'
 		end if
-	end function getFlag
+	end function get_flag
 
 	! lowercase(arg)
 	! arg - character
@@ -43,51 +44,43 @@ contains
 		end if
 	end function lowercase
 
-	subroutine getSwitchString(counter, option, targetString)
+	subroutine get_switch_string(counter, option, targetString)
 		integer(kind=8), intent(inout) :: counter
 		character, intent(in) :: option
 		character(len=*), intent(inout) :: targetString
 		character(len = 256) :: arg
 
 		counter = counter + 1
-		if(counter > iargc()) then
-			print*, "not enough arguments for -", option
-			stop
-		end if
+		if(counter > iargc()) error_stop("not enough arguments for -"//option)
 		call getarg(counter, arg)
-		if(.not. isFlag(trim(arg))) then
+		if(.not. is_flag(trim(arg))) then
 			targetString = trim(arg)
 		else
-			print*, trim(arg), " is not a valid option for -", option
-			stop
+			error_stop(" is not a valid option for -"//option)
 		end if
-	end subroutine  getSwitchString
+	end subroutine  get_switch_string
 
-	subroutine getSwitchReal(counter, option, targetReal)
+	subroutine get_switch_real64(counter, option, targetReal)
 		integer(kind=8), intent(inout) :: counter
 		character, intent(in) :: option
 		real(kind=8), intent(inout) :: targetReal
 		character(len = 256) :: arg
 		integer :: ierr
 		counter = counter + 1
-		if(counter > iargc()) then
-			print*, "not enough arguments for -", option
-			stop
-		end if
+		if(counter > iargc()) error_stop("not enough arguments for -"//option)
 		call getarg(counter, arg)
-		if(.not. isFlag(trim(arg))) then
+		if(.not. is_flag(trim(arg))) then
 			read(arg, *, iostat = ierr) targetReal
 			if(ierr .ne. 0) then
-				print*, trim(arg), " is not a valid option for -", option
-				stop
+				error_stop(" is not a valid option for -"//option)
 			end if
 		else
 			print*, trim(arg), " is not a valid option for -", option
 			stop
 		end if
-	end subroutine getSwitchReal
+	end subroutine get_switch_real64
 
-	subroutine getSwitchInteger(counter, option, targetInteger)
+	subroutine get_switch_int8(counter, option, targetInteger)
 		integer(kind=8), intent(inout) :: counter
 		character, intent(in) :: option
 		integer(kind=1), intent(inout) :: targetInteger
@@ -95,11 +88,10 @@ contains
 		integer :: ierr
 		counter = counter + 1
 		if(counter > iargc()) then
-			print*, "not enough arguments for -", option
-			stop
+			error_stop("not enough arguments for -"//option)
 		end if
 		call getarg(counter, arg)
-		if(.not. isFlag(trim(arg))) then
+		if(.not. is_flag(trim(arg))) then
 			read(arg, *, iostat = ierr) targetInteger
 			if(ierr .ne. 0) then
 				print*, trim(arg), " is not a valid option for -", option
@@ -109,9 +101,9 @@ contains
 			print*, trim(arg), " is not a valid option for -", option
 			stop
 		end if
-	end subroutine getSwitchInteger
+	end subroutine get_switch_int8
 
-	subroutine getSwitchInteger8(counter, option, targetInteger)
+	subroutine get_switch_int64(counter, option, targetInteger)
 		integer(kind=8), intent(inout) :: counter
 		character, intent(in) :: option
 		integer(kind=8), intent(inout) :: targetInteger
@@ -119,11 +111,11 @@ contains
 		integer :: ierr
 		counter = counter + 1
 		if(counter > iargc()) then
-			print*, "not enough arguments for -", option
+			error_stop("not enough arguments for -"//option)
 			stop
 		end if
 		call getarg(counter, arg)
-		if(.not. isFlag(trim(arg))) then
+		if(.not. is_flag(trim(arg))) then
 			read(arg, *, iostat = ierr) targetInteger
 			if(ierr .ne. 0) then
 				print*, trim(arg), " is not a valid option for -", option
@@ -133,7 +125,7 @@ contains
 			print*, trim(arg), " is not a valid option for -", option
 			stop
 		end if
-	end subroutine getSwitchInteger8
+	end subroutine get_switch_int64
 	
 end module
 
