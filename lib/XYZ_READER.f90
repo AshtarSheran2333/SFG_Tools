@@ -9,6 +9,7 @@ submodule (FRAME_READERS) XYZ_READER
     contains
     
     function read_header_with_velocities() result(res)
+        implicit none
         logical :: res
         logical :: is_open
         integer :: ierr
@@ -44,6 +45,7 @@ submodule (FRAME_READERS) XYZ_READER
     end function read_header_with_velocities
     
     function read_header_no_velocities() result(res)
+        implicit none
         logical :: res
         logical :: is_open
         integer :: ierr
@@ -63,6 +65,7 @@ submodule (FRAME_READERS) XYZ_READER
     end function read_header_no_velocities
     
     function read_header() result(res)
+        implicit none
         logical :: res
         logical :: is_open
         integer :: ierr
@@ -90,6 +93,7 @@ submodule (FRAME_READERS) XYZ_READER
     end function read_header
 
     function open_with_velocities(posfile, velfile) result(res)
+        implicit none
         character(*), intent(in) :: posfile, velfile
         integer :: res
         integer :: ierr
@@ -139,6 +143,7 @@ submodule (FRAME_READERS) XYZ_READER
     end function open_with_velocities
     
     function open_no_velocities(posfile) result(res)
+        implicit none
         character(*), intent(in) :: posfile
         integer :: res
         integer :: ierr
@@ -167,6 +172,7 @@ submodule (FRAME_READERS) XYZ_READER
     end function open_no_velocities
 
     module procedure xyz_open_file
+        implicit none
         integer :: ierr
         logical :: is_open
         integer(int32) :: res_index, atom_index
@@ -210,6 +216,7 @@ submodule (FRAME_READERS) XYZ_READER
     end procedure xyz_open_file
 
     module procedure xyz_read_frame
+        implicit none
         integer(int64) :: i
         integer :: ierr
 
@@ -248,6 +255,7 @@ submodule (FRAME_READERS) XYZ_READER
     end procedure xyz_read_frame
 
     module procedure xyz_skip_frame
+        implicit none
         integer(int64) :: i
         integer :: ierr
         character(len=128) :: dummy
@@ -286,6 +294,7 @@ submodule (FRAME_READERS) XYZ_READER
     end procedure xyz_skip_frame
 
     module procedure xyz_rewind_file
+        implicit none
         logical :: is_open
         integer :: ierr
         
@@ -312,6 +321,7 @@ submodule (FRAME_READERS) XYZ_READER
     end procedure xyz_rewind_file
 
     module procedure xyz_close_file
+        implicit none
         logical :: is_open
         integer :: ierr
         
@@ -338,6 +348,7 @@ submodule (FRAME_READERS) XYZ_READER
     end procedure xyz_close_file
 
     module procedure xyz_is_open
+        implicit none
         logical :: is_open
         
         res = .false.

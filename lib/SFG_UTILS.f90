@@ -15,6 +15,7 @@ module SFG_UTILS
     contains
     
     function pbc_minimum_image(vector, box, corner) result(image)
+        implicit none
         real(real64), dimension(3), intent(in) :: vector, box
         real(real64), dimension(3), intent(in), optional :: corner
         real(real64), dimension(3) :: image

@@ -31,6 +31,7 @@ module INTERFACE_UI
     contains
     
     subroutine print_help()
+        implicit none
         character(len=*), parameter ::  f_line = "(A)",&
                                         f_1tab = "(T4, A)",&
                                         f_2tab = "(T8,A)"
@@ -70,6 +71,7 @@ module INTERFACE_UI
     ! goes through program options and sets the program logic
     ! frame reader as an argument...
     subroutine evaluate_program_options()
+        implicit none
         character(len=256) :: op, arg, arg1
         character :: option
         integer(kind=int64) :: i

@@ -280,11 +280,13 @@ module SFG_STRUCT
     ! result = -1 - incomplete group
     ! result = -2 - IO error
     function read_water(group) result(res)
+        implicit none
         type(sfg_unit), intent(inout) :: group
         integer :: res
         integer, dimension(4) :: ids
         character(128) :: line
         logical :: is_open
+        integer :: ierr
         
         res = -2
         inquire(file, opened = is_open)
@@ -327,6 +329,7 @@ module SFG_STRUCT
     ! result = -1 - incomplete group
     ! result = -2 - IO error
     function read_simple_chromophore_chgroup(group) result(res)
+        implicit none
         type(sfg_unit), intent(inout) :: group
         integer :: res
         integer, parameter :: max_hydroxyl_references = 12
@@ -373,6 +376,7 @@ module SFG_STRUCT
     end function read_simple_chromophore_chgroup
 
     subroutine append_chgroup_chromophores(group, chr)
+        implicit none
         type(sfg_unit), intent(inout) :: group
         type(chromophore), intent(in) :: chr
         type(chromophore), dimension(:), allocatable :: temp_chromophores
@@ -395,6 +399,7 @@ module SFG_STRUCT
     end subroutine append_chgroup_chromophores
     
     function read_other(group) result(res)
+        implicit none
         type(sfg_unit), intent(inout) :: group
         integer :: res
         logical :: is_open
@@ -419,11 +424,13 @@ module SFG_STRUCT
     ! result STATE_NONE - STATE_OTHER - OK
     ! result = -2 - IO error
     function get_reader_state(groupname) result(res)
+        implicit none
         integer :: res
         character(len=32), intent(inout) :: groupname
         character(128) :: line
         character(64) :: W1
         integer :: pos
+        integer :: ierr
         
         read(file, "(A)", iostat = ierr) line 
         res = -2; if(ierr .ne. 0) return 
@@ -472,6 +479,7 @@ module SFG_STRUCT
     ! result = -1 - wrong format
     ! result = -2 - IO error
     function read_struct(filename) result(res)
+        implicit none
         !this is disgusting...
         character(*) :: filename
         integer :: res
@@ -482,6 +490,7 @@ module SFG_STRUCT
         character(128) :: line
         logical :: reading_group = .false.
         character(32) :: groupname, current_groupname
+        integer :: ierr
 
         inquire(file, opened = is_open)
         if(is_open) close(file)
@@ -580,7 +589,7 @@ module SFG_STRUCT
             end select
         end do
         
-        res = -2; if((n_water + n_hydroxyl + n_other) .eq. 0) return !didnt get any data from the file
+        res = -2; if(.not. allocated(sfg_structure)) return !didnt get any data from the file
         res = 0
     end function read_struct
     

@@ -2,7 +2,7 @@
 	
 module SWITCHES
 	use UTILS_ERROR
-    implicit none
+	implicit none
     
 #include "utils_error_macros.h"
 
@@ -12,6 +12,7 @@ contains
 	! arg - string
 	! returns .true. if string starts with '-' and is longer than 2 characters
 	logical function is_flag(flag)
+        implicit none
 		character(len=*), intent(IN) :: flag
 
 		is_flag = .false.
@@ -24,6 +25,7 @@ contains
 	! arg - string
 	! if arg is a switch returns second character after '-', else returns '*'
 	character function get_flag(arg)
+        implicit none
 		character(len=*) :: arg
 
 		if(is_flag(arg)) then
@@ -37,6 +39,7 @@ contains
 	! arg - character
 	! returns lowercase arg
 	character function lowercase(input)
+        implicit none
 		character, intent(IN) :: input
 		lowercase = input
 		if(ichar(input) >= ichar('A') .and. ichar(input) <= ichar('Z')) then
@@ -45,6 +48,7 @@ contains
 	end function lowercase
 
 	subroutine get_switch_string(counter, option, targetString)
+        implicit none
 		integer(kind=8), intent(inout) :: counter
 		character, intent(in) :: option
 		character(len=*), intent(inout) :: targetString
@@ -61,6 +65,7 @@ contains
 	end subroutine  get_switch_string
 
 	subroutine get_switch_real64(counter, option, targetReal)
+        implicit none
 		integer(kind=8), intent(inout) :: counter
 		character, intent(in) :: option
 		real(kind=8), intent(inout) :: targetReal
@@ -81,6 +86,7 @@ contains
 	end subroutine get_switch_real64
 
 	subroutine get_switch_int8(counter, option, targetInteger)
+        implicit none
 		integer(kind=8), intent(inout) :: counter
 		character, intent(in) :: option
 		integer(kind=1), intent(inout) :: targetInteger
@@ -104,6 +110,7 @@ contains
 	end subroutine get_switch_int8
 
 	subroutine get_switch_int64(counter, option, targetInteger)
+        implicit none
 		integer(kind=8), intent(inout) :: counter
 		character, intent(in) :: option
 		integer(kind=8), intent(inout) :: targetInteger

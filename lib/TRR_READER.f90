@@ -8,6 +8,7 @@ submodule (FRAME_READERS) TRR_READER
     contains
     
     function read_header(reader) result(res)
+        implicit none
         type(trr_frame_reader), intent(inout) :: reader
         logical :: res
         integer(int32) :: skip = 0
@@ -73,6 +74,7 @@ submodule (FRAME_READERS) TRR_READER
     end function
     
     function read_ir(reader) result(res) !not implemented - just skipping the data
+        implicit none
         class(trr_frame_reader) :: reader
         logical :: res
         integer :: ierr
@@ -96,6 +98,7 @@ submodule (FRAME_READERS) TRR_READER
     end function read_ir
 
     function read_e(reader) result(res) !not implemented - just skipping the data
+        implicit none
         class(trr_frame_reader) :: reader
         logical :: res
         integer :: ierr
@@ -119,6 +122,7 @@ submodule (FRAME_READERS) TRR_READER
     end function read_e
 
     function read_box(reader) result(res) !not implemented - just skipping the data
+        implicit none
         class(trr_frame_reader) :: reader
         logical :: res
         integer :: ierr
@@ -142,6 +146,7 @@ submodule (FRAME_READERS) TRR_READER
     end function read_box
 
     function read_vir(reader) result(res) !not implemented - just skipping the data
+        implicit none
         class(trr_frame_reader) :: reader
         logical :: res
         integer :: ierr
@@ -165,6 +170,7 @@ submodule (FRAME_READERS) TRR_READER
     end function read_vir
 
     function read_pres(reader) result(res) !not implemented - just skipping the data
+        implicit none
         class(trr_frame_reader) :: reader
         logical :: res
         integer :: ierr
@@ -188,6 +194,7 @@ submodule (FRAME_READERS) TRR_READER
     end function read_pres
 
     function read_top(reader) result(res) !not implemented - just skipping the data
+        implicit none
         class(trr_frame_reader) :: reader
         logical :: res
         integer :: ierr
@@ -211,6 +218,7 @@ submodule (FRAME_READERS) TRR_READER
     end function read_top
     
     function read_sym(reader) result(res) !not implemented - just skipping the data
+        implicit none
         class(trr_frame_reader) :: reader
         logical :: res
         integer :: ierr
@@ -234,6 +242,7 @@ submodule (FRAME_READERS) TRR_READER
     end function read_sym
     
     function read_positions(reader) result(res)
+        implicit none
         class(trr_frame_reader) :: reader
         logical :: res
         integer :: ierr
@@ -285,6 +294,7 @@ submodule (FRAME_READERS) TRR_READER
     end function read_positions
     
     function read_velocities(reader) result(res)
+        implicit none
         class(trr_frame_reader) :: reader
         logical :: res
         integer :: ierr
@@ -340,6 +350,7 @@ submodule (FRAME_READERS) TRR_READER
     end function read_velocities
 
     function read_forces(reader) result(res) !not implemented - just skipping the data
+        implicit none
         class(trr_frame_reader) :: reader
         logical :: res
         integer :: ierr
@@ -364,6 +375,7 @@ submodule (FRAME_READERS) TRR_READER
     end function read_forces
 
     function fill_atom_names(filename) result(res)
+        implicit none
         character(*) :: filename
         logical :: res
         integer :: ierr
@@ -403,6 +415,7 @@ submodule (FRAME_READERS) TRR_READER
     end function fill_atom_names
     
     module procedure trr_open_file
+        implicit none
         integer :: ierr, file1
         logical :: is_open
         res = -1
@@ -452,6 +465,7 @@ submodule (FRAME_READERS) TRR_READER
     end procedure trr_open_file
 
     module procedure trr_read_frame
+        implicit none
         logical :: is_open
         
         res = -1
@@ -488,6 +502,7 @@ submodule (FRAME_READERS) TRR_READER
     end procedure trr_read_frame
 
     module procedure trr_skip_frame
+        implicit none
         integer(int64) :: position, offset
         logical :: is_open = .false.
         integer :: ierr
@@ -507,6 +522,7 @@ submodule (FRAME_READERS) TRR_READER
     end procedure trr_skip_frame
 
     module procedure trr_rewind_file
+        implicit none
         logical :: is_open
         integer :: ierr
         
@@ -524,6 +540,7 @@ submodule (FRAME_READERS) TRR_READER
     end procedure trr_rewind_file
 
     module procedure trr_close_file
+        implicit none
         logical :: is_open
         
         inquire(fr_file, opened = is_open)
@@ -543,6 +560,7 @@ submodule (FRAME_READERS) TRR_READER
     end procedure trr_close_file
 
     module procedure trr_is_open
+        implicit none
         inquire(fr_file, opened = res)
     end procedure trr_is_open
 

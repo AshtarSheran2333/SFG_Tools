@@ -10,6 +10,7 @@ submodule (FRAME_READERS) GRO_READER
     contains
     
     function read_header() result(res)
+        implicit none
         logical :: res
         logical :: is_open
         integer :: ierr
@@ -30,6 +31,7 @@ submodule (FRAME_READERS) GRO_READER
     end function read_header
 
     module procedure gro_open_file
+        implicit none
         integer :: ierr
         logical :: is_open
         integer(int32) :: res_index, atom_index
@@ -90,6 +92,7 @@ submodule (FRAME_READERS) GRO_READER
     end procedure gro_open_file
 
     module procedure gro_read_frame
+        implicit none
         integer(int64) :: i
         integer(int32) :: res_index, atom_index
         real(real32), dimension(3) :: box
@@ -151,6 +154,7 @@ submodule (FRAME_READERS) GRO_READER
     end procedure gro_read_frame
 
     module procedure gro_skip_frame
+        implicit none
         integer :: ierr
         logical :: is_open
         character(len=128) :: dummy
@@ -174,6 +178,7 @@ submodule (FRAME_READERS) GRO_READER
     end procedure gro_skip_frame
 
     module procedure gro_rewind_file
+        implicit none
         logical :: is_open
         integer :: ierr
         
@@ -191,6 +196,7 @@ submodule (FRAME_READERS) GRO_READER
     end procedure gro_rewind_file
 
     module procedure gro_close_file
+        implicit none
         logical :: is_open
         
         inquire(fr_file, opened = is_open)
@@ -210,6 +216,7 @@ submodule (FRAME_READERS) GRO_READER
     end procedure gro_close_file
 
     module procedure gro_is_open
+        implicit none
         inquire(fr_file, opened = res)
     end procedure gro_is_open
 
