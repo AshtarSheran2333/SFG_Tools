@@ -38,6 +38,8 @@ Following things needs to be done:
         - The reader modules should assure this - each function returns some kind of return code -> catch those, backup, abort
 - [ ] Start making some tests (probably in form of a special program...)
 - [ ] Work on the CMakeLists.txt
+    + [ ] use the f18 standard flag
+    + [ ] during the cleanup, the code should be more standardized, so possibly working even with gfortran??
 - [ ] Update documentation
 
 # SFG\_TOOLS - sum-frequency generation spectrum analysis toolkit
