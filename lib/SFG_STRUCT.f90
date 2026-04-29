@@ -170,70 +170,10 @@ module SFG_STRUCT
     
     contains
 
-    !! this function returns maximal index, this can be used to check agains frame_reader n_group to be safe when using those together
-    !! returns maximal index stored in the water, hydroxyl, and other array
-    !function sfg_group_struct_get_max_index() result(res)
-    !    integer :: res
-    !    integer :: i,j,k
-    !    
-    !    !this is pretty ugly and slow, but whatever
-    !    res = -1
-
-    !    !water
-    !    do i = 1, n_water
-    !        do j = 1, size(water(i)%chromophores)
-    !            if(res < water(i)%chromophores(j)%base) res = water(i)%chromophores(j)%base
-    !            if(res < water(i)%chromophores(j)%actor) res = water(i)%chromophores(j)%actor
-    !            do k = 1, size(water(i)%chromophores(j)%references)
-    !                if(res < water(i)%chromophores(j)%references(k)) res = water(i)%chromophores(j)%references(k)
-    !            end do
-    !        end do
-    !    end do
-    !    
-    !    !hydroxyl
-    !    do i = 1, n_hydroxyl
-    !        do j = 1, size(hydroxyl(i)%chromophores)
-    !            if(res < hydroxyl(i)%chromophores(j)%base) res = hydroxyl(i)%chromophores(j)%base
-    !            if(res < hydroxyl(i)%chromophores(j)%actor) res = hydroxyl(i)%chromophores(j)%actor
-    !            do k = 1, size(hydroxyl(i)%chromophores(j)%references)
-    !                if(res < hydroxyl(i)%chromophores(j)%references(k)) res = hydroxyl(i)%chromophores(j)%references(k)
-    !            end do
-    !        end do
-    !    end do
-
-    !    !other
-    !    do i = 1, n_other
-    !        do j = 1, size(other(i)%chromophores)
-    !            if(res < other(i)%chromophores(j)%base) res = other(i)%chromophores(j)%base
-    !            if(res < other(i)%chromophores(j)%actor) res = other(i)%chromophores(j)%actor
-    !            do k = 1, size(other(i)%chromophores(j)%references)
-    !                if(res < other(i)%chromophores(j)%references(k)) res = other(i)%chromophores(j)%references(k)
-    !            end do
-    !        end do
-    !    end do
-
-    !end function sfg_group_struct_get_max_index
-    !
-    !subroutine clear_struct()
-    !    if(allocated(water)) deallocate(water)
-    !    n_water = 0
-    !    if(allocated(hydroxyl)) deallocate(hydroxyl)
-    !    n_hydroxyl = 0
-    !    if(allocated(other)) deallocate(other)
-    !    n_other = 0
-    !end subroutine clear_struct
-    !
-    !subroutine clear_group_container(dest, dest_length)
-    !    type(chgroup), allocatable, dimension(:), intent(inout) :: dest
-    !    integer, intent(inout) :: dest_length
-
-    !    dest_length = 0
-
-    !    if(.not. allocated(dest)) return
-    !    
-    !    deallocate(dest)
-    !end subroutine clear_group_container
-    !
+    subroutine clear_struct()
+        implicit none
+        if(allocated(sfg_structure)) deallocate(sfg_structure)
+    end subroutine clear_struct
     
     !append a group with name groupname
     !if that group does not exist, create that group
@@ -500,7 +440,7 @@ module SFG_STRUCT
         open(newunit = file, file = filename, status = 'old', iostat = ierr)
         res = -2; if(ierr .ne. 0) return
 
-        if(allocated(sfg_structure)) deallocate(sfg_structure)
+        call clear_struct()
         
         !get reader to some state...
         do while(read_state <= STATE_NONE)
