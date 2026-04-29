@@ -107,6 +107,9 @@ call evaluate_switches()
 
 call bd%read_boxdata()
 
+
+!TODO this can be some module called INTERFACE_UI
+
 if(.NOT. nocheck) then
 	print*, "Checking the contents of trajectory file(s)"
 	print*, ""
@@ -138,7 +141,11 @@ print*, "width of bin (Angstrom): ", 2*bd%density_tol
 print*, ""
 print*, "_______________________________________________________________________________"
 
+!TODO this can be some module called INTERFACE_UI
+
 !##############################################################################################################
+
+!TODO work with interface files - should be in INSTANTANEOUS_SURFACE module
 
 if(vmdout) then 
 	open (newunit = f_interface, FILE="interface.xyz", iostat = ierr)
@@ -170,6 +177,10 @@ else
 	end if
 end if
 
+!TODO work with interface files - should be in INSTANTANEOUS_SURFACE module
+
+!TODO work with density file - should be in DENSITY module
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! density file preparation
 nop=(bd%density_max_r-bd%density_min_r)*bd%density_bin+1
 
@@ -180,6 +191,11 @@ density_function = 0
 do i=1,nop
 	density_axis(i)=(real(i,8)-1)/bd%density_bin+bd%density_min_r
 end do
+
+!TODO work with density file - should be in DENSITY module
+
+!TODO work with interface files - should be in INSTANTANEOUS_SURFACE module
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -212,13 +228,15 @@ prev_index(:,:,2) = 0
 prev_index(:,:,1) = 10000000
 !the values will be rewriten when the frame 1 interface is found and next interface is calculated according to that
 
+!TODO work with interface files - should be in INSTANTANEOUS_SURFACE module
+
 do step = 0, bd%NSTEP-1, bd%INTERFACE_SKIP
 	
 	print "(a,a,i,$)", char(13), "STEP: ", step+1
 	
 	call fr%read_frame() !reading frame
 	
-	!estimating center of the water slab
+	!estimating center of the water slab TODO each step?
 	if (step == 0) then
 		print*, ""
 		print*, "estimating center of the water slab..."
@@ -237,6 +255,7 @@ do step = 0, bd%NSTEP-1, bd%INTERFACE_SKIP
 		print*, "_______________________________________________________________________________"
 	end if
 	
+    !TODO work with interface files - should be in INSTANTANEOUS_SURFACE module
 	if(bd%cancel_interface_calculation .eq. .true.) then
 		call read_interface_frame()
 	else
@@ -358,15 +377,24 @@ do step = 0, bd%NSTEP-1, bd%INTERFACE_SKIP
 		!$OMP END DO
 		!$OMP END PARALLEL
 	end if
+    !TODO work with interface files - should be in INSTANTANEOUS_SURFACE module
+
 	
+    !TODO work with density file - should be in DENSITY module
 	call frame_density_function()
+
+
 	!instead of skipping frames calculate density file with all of them
 	do k = 1, min(bd%INTERFACE_SKIP-1, bd%NSTEP-step)
 		print "(a,a,i,$)", char(13), "STEP: ", step+k
 		call fr%read_frame()
 		call frame_density_function()
 	end do
+
+    !TODO work with density file - should be in DENSITY module
 	
+    !TODO work with interface files - should be in INSTANTANEOUS_SURFACE module
+
 	!printing out each step in interface.xyz
 	if(vmdout) then 
 		call vmd_out()
@@ -376,6 +404,7 @@ do step = 0, bd%NSTEP-1, bd%INTERFACE_SKIP
 		call bin_out()
 	end if
 	!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 end do
 
 if(vmdout) then 
@@ -383,6 +412,7 @@ if(vmdout) then
 end if
 
 close(f_interfacebin)
+    !TODO work with interface files - should be in INSTANTANEOUS_SURFACE module
 
 !normalize the density function and write it into files
 call evaluate_density_function()
@@ -538,6 +568,7 @@ subroutine printHelp()
 
 end subroutine printHelp
 
+!TODO GARBAGE
 function abs_pbc_check(vector,box_dimensions)
 	real*8, dimension(3) :: abs_pbc_check
 	real*8, dimension(3), intent(IN) :: vector
@@ -556,8 +587,10 @@ function abs_pbc_check(vector,box_dimensions)
 	end do
 	
 end function abs_pbc_check
+!TODO GARBAGE
 
 
+!TODO GARBAGE
 subroutine poke_rod() !private variables for parralelization should be: k,prev_rod_pos, rod_pos, p, pdiff, prev_pdiff , m, diff 
 	!poking rod from bottom
 	!k = maxval((/int(0, 8),prev_index(i,j,2)-20/)) <- seems weird, but max() does not work??? error #6414 this PARAMETER constant name is invalid in this context
@@ -628,7 +661,9 @@ subroutine poke_rod() !private variables for parralelization should be: k,prev_r
 		end if
 	end do
 end subroutine poke_rod
+!TODO GARBAGE
 
+!TODO internal part of INSTANTANEOUS SURFACE module
 subroutine d_check()
 	!checks if program found both interfaces
 	
@@ -689,9 +724,9 @@ subroutine bin_out()
 	end do
 
 end subroutine bin_out
+!TODO internal part of INSTANTANEOUS SURFACE module
 
-!density file subs and fs
-
+!TODO already in SFG_UTILS module
 function pbc_check(vector,box_dimensions)
 
 	real*8, dimension(3) :: pbc_check
@@ -710,7 +745,9 @@ function pbc_check(vector,box_dimensions)
 	end do
 
 end function pbc_check
+!TODO already in SFG_UTILS module
 
+!TODO should be in the density module
 subroutine frame_density_function
 	integer :: x,y,x1,y1 !the position in the grid
 	real*8 :: uz, dz !interface z value at position
@@ -812,7 +849,9 @@ subroutine evaluate_density_function()
 	close(f_density_vs_r)
 	
 end subroutine evaluate_density_function
+!TODO should be in the density module
 
+!TODO should be in the INSTANTANEOUS SURFACE module
 subroutine read_interface_frame()
 	real*8 :: placeholder
 	integer*8 :: npoint
@@ -855,5 +894,6 @@ subroutine read_interface_frame()
 	end if  
 
 end subroutine read_interface_frame
+!TODO should be in the INSTANTANEOUS SURFACE module
 
 end program interf
