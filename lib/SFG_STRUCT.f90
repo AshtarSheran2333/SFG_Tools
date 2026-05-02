@@ -1,6 +1,5 @@
 module SFG_STRUCT
     use, intrinsic :: iso_fortran_env
-    use FRAME_READERS, only: fr_atoms, fr_info
     use UTILS_ERROR
 
 #include "utils_error_macros.h"

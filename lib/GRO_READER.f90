@@ -24,7 +24,7 @@ submodule (FRAME_READERS) GRO_READER
         read(fr_file, "(A)", iostat = ierr) !comment line
         if(ierr .ne. 0) return
 
-        read(fr_file, *, iostat = ierr) fr_info%n_atoms !number of atoms
+        read(fr_file, *, iostat = ierr) fr_frame%n_atoms !number of atoms
         if(ierr .ne. 0) return
 
         res = .true.
@@ -36,18 +36,25 @@ submodule (FRAME_READERS) GRO_READER
         logical :: is_open
         integer(int32) :: res_index, atom_index
         character(len = 5) :: res_name, atom_name
+        real(kind=real64), dimension(3) :: dummy
 
         res = -1
 
         if(present(filename1)) error_stop("Calling gro reader with two arguments is not allowed")
         
-        if(allocated(fr_atoms)) then
-            deallocate(fr_atoms)
+        if(allocated(fr_frame%positions)) then
+            deallocate(fr_frame%positions)
+        end if
+        if(allocated(fr_frame%velocities)) then
+            deallocate(fr_frame%velocities)
+        end if
+        if(allocated(fr_frame%names)) then
+            deallocate(fr_frame%names)
         end if
         
-        fr_info%frame_number = 0
-        fr_info%n_atoms = 0
-        fr_info%has_velocities = .false.
+        fr_frame%frame_number = 0
+        fr_frame%n_atoms = 0
+        fr_frame%has_velocities = .false.
         
         inquire(fr_file, opened = is_open)
         if(is_open) then
@@ -64,20 +71,24 @@ submodule (FRAME_READERS) GRO_READER
         
         if(.not. read_header()) return
         
-        prev_n_atoms = fr_info%n_atoms
+        prev_n_atoms = fr_frame%n_atoms
 
-        allocate(fr_atoms(fr_info%n_atoms), stat = ierr) !allocate space for atoms
+        allocate(fr_frame%positions(3,fr_frame%n_atoms), stat = ierr) !allocate space for atoms
+        if(ierr .ne. 0) return
+        allocate(fr_frame%velocities(3,fr_frame%n_atoms), stat = ierr) !allocate space for atoms
+        if(ierr .ne. 0) return
+        allocate(fr_frame%names(fr_frame%n_atoms), stat = ierr) !allocate space for atoms
         if(ierr .ne. 0) return
 
         !attempt to read velocities
-        fr_info%has_velocities = .true.
+        fr_frame%has_velocities = .true.
         read(fr_file, gro_format, iostat = ierr) &
-            res_index, res_name, atom_name, atom_index, fr_atoms(1)%position, fr_atoms(1)%velocity
+            res_index, res_name, atom_name, atom_index, dummy, dummy
         if(ierr .ne. 0) then
-            fr_info%has_velocities = .false.
+            fr_frame%has_velocities = .false.
             !attempt to read without velocities
             read(fr_file, gro_format, iostat = ierr) &
-                res_index, res_name, atom_name, atom_index, fr_atoms(1)%position
+                res_index, res_name, atom_name, atom_index, dummy
             if(ierr .ne. 0) then
                 !problem
                 res = ierr
@@ -107,24 +118,19 @@ submodule (FRAME_READERS) GRO_READER
         res = -2; if(.not. read_header()) return
         
         !check wheather the number of atoms changed, if yes, reallocate fr_atoms
-        if(fr_info%n_atoms .ne. prev_n_atoms) then
+        if(fr_frame%n_atoms .ne. prev_n_atoms) then
             error_stop("gro reader does not support variable number of atoms") 
-            !well, it does if the line above is commented, but I dont want this functionality
-            if(allocated(fr_atoms)) then
-                deallocate(fr_atoms)
-            end if
-            allocate(fr_atoms(fr_info%n_atoms))
-            prev_n_atoms = fr_info%n_atoms
+            !here one can implement variable number of atoms, but I dont want this functionality
         end if
         
-        if(fr_info%has_velocities) then
+        if(fr_frame%has_velocities) then
             read(fr_file, gro_format, iostat = ierr) &
-                (res_index, res_name, fr_atoms(i)%name, atom_index, fr_atoms(i)%position, fr_atoms(i)%velocity, &
-                i = 1, fr_info%n_atoms)
+                (res_index, res_name, fr_frame%names(i), atom_index, fr_frame%positions(:,i), fr_frame%velocities(:,i), &
+                i = 1, fr_frame%n_atoms)
         else
             read(fr_file, gro_format, iostat = ierr) &
-                (res_index, res_name, fr_atoms(i)%name, atom_index, fr_atoms(i)%position, &
-                i = 1, fr_info%n_atoms)
+                (res_index, res_name, fr_frame%names(i), atom_index, fr_frame%positions(:,i), &
+                i = 1, fr_frame%n_atoms)
         end if
         if(ierr .ne. 0) then
             res = ierr
@@ -132,24 +138,15 @@ submodule (FRAME_READERS) GRO_READER
         end if
             
         !convert the positions
-        do i = 1, size(fr_atoms)
-            fr_atoms(i)%position = fr_atoms(i)%position * nm_to_angstrom
-        end do
-
-        if(fr_info%has_velocities) then
-            !convert the velocities
-            do i = 1, size(fr_atoms)
-                fr_atoms(i)%velocity = fr_atoms(i)%velocity * nmpps_to_hartree
-            end do
-        else
-            
-        end if
+        fr_frame%positions = fr_frame%positions * nm_to_angstrom
+        !convert the velocities
+        if(fr_frame%has_velocities) fr_frame%velocities = fr_frame%velocities * nmpps_to_hartree
 
         !read the box size - just discard it
         read(fr_file, *, iostat = ierr) box
         res = -3; if(ierr .ne. 0) return
         
-        fr_info%frame_number = fr_info%frame_number + 1
+        fr_frame%frame_number = fr_frame%frame_number + 1
         res = 0;
     end procedure gro_read_frame
 
@@ -167,13 +164,13 @@ submodule (FRAME_READERS) GRO_READER
         res = -2; if(.not. read_header()) return
         
         read(fr_file, "(A)", iostat = ierr) &
-            (dummy , i = 1, fr_info%n_atoms+1) !empty read +1 for the box
+            (dummy , i = 1, fr_frame%n_atoms+1) !empty read +1 for the box
         if(ierr .ne. 0) then
             res = ierr
             return
         end if
 
-        fr_info%frame_number = fr_info%frame_number + 1
+        fr_frame%frame_number = fr_frame%frame_number + 1
         res = 0;
     end procedure gro_skip_frame
 
@@ -191,7 +188,7 @@ submodule (FRAME_READERS) GRO_READER
             return
         end if
         
-        fr_info%frame_number = 0
+        fr_frame%frame_number = 0
         res = 0
     end procedure gro_rewind_file
 
@@ -207,12 +204,14 @@ submodule (FRAME_READERS) GRO_READER
 
         fr_file = 0
 
-        if(allocated(fr_atoms)) deallocate(fr_atoms)
+        if(allocated(fr_frame%positions)) deallocate(fr_frame%positions)
+        if(allocated(fr_frame%velocities)) deallocate(fr_frame%velocities)
+        if(allocated(fr_frame%names)) deallocate(fr_frame%names)
         
-        fr_info%n_atoms = 0
-        fr_info%frame_number = 0
-        fr_info%has_velocities = .false.
-        res = 0 
+        fr_frame%n_atoms = 0
+        fr_frame%frame_number = 0
+        fr_frame%has_velocities = .false.
+        res = 0
     end procedure gro_close_file
 
     module procedure gro_is_open

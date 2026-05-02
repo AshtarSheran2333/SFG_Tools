@@ -1,4 +1,3 @@
-
 submodule (FRAME_READERS) XYZ_READER
     use, intrinsic :: iso_fortran_env, only: output_unit, error_unit
     use UTILS_ERROR
@@ -34,7 +33,7 @@ submodule (FRAME_READERS) XYZ_READER
             return
         end if
         
-        fr_info%n_atoms = pos_n_atoms
+        fr_frame%n_atoms = pos_n_atoms
 
         read(fr_file, "(A)", iostat = ierr) !comment line
         read(fr_file1, "(A)", iostat = ierr) !comment line
@@ -55,7 +54,7 @@ submodule (FRAME_READERS) XYZ_READER
         inquire(fr_file, opened = is_open)
         if(.not. is_open) return
 
-        read(fr_file, *, iostat = ierr) fr_info%n_atoms !number of atoms
+        read(fr_file, *, iostat = ierr) fr_frame%n_atoms !number of atoms
         if(ierr .ne. 0) return
 
         read(fr_file, "(A)", iostat = ierr) !comment line
@@ -63,34 +62,6 @@ submodule (FRAME_READERS) XYZ_READER
 
         res = .true. 
     end function read_header_no_velocities
-    
-    function read_header() result(res)
-        implicit none
-        logical :: res
-        logical :: is_open
-        integer :: ierr
-        
-        res = .false.
-
-        if(fr_info%has_velocities) then
-            inquire(fr_file, opened = is_open)
-            if(.not. is_open) return
-            inquire(fr_file1, opened = is_open)
-            if(.not. is_open) return
-        else
-            inquire(fr_file, opened = is_open)
-            if(.not. is_open) return
-        end if
-        
-        read(fr_file, *, iostat = ierr) fr_info%n_atoms !number of atoms
-        if(ierr .ne. 0) return
-
-        read(fr_file, "(A)", iostat = ierr) !comment line
-        if(ierr .ne. 0) return
-
-        res = .true.
-        stop "NOT IMPLEMENTED"
-    end function read_header
 
     function open_with_velocities(posfile, velfile) result(res)
         implicit none
@@ -131,8 +102,8 @@ submodule (FRAME_READERS) XYZ_READER
             return
         end if
         
-        fr_info%n_atoms = pos_n_atoms
-        prev_n_atoms = fr_info%n_atoms
+        fr_frame%n_atoms = pos_n_atoms
+        prev_n_atoms = fr_frame%n_atoms
 
         rewind(fr_file, iostat = ierr) !rewind
         if(ierr .ne. 0) return
@@ -157,13 +128,13 @@ submodule (FRAME_READERS) XYZ_READER
             return
         end if
         
-        read(fr_file, *, iostat = ierr) fr_info%n_atoms
+        read(fr_file, *, iostat = ierr) fr_frame%n_atoms
         if(ierr .ne. 0) then
             res = ierr
             return
         end if
         
-        prev_n_atoms = fr_info%n_atoms
+        prev_n_atoms = fr_frame%n_atoms
 
         rewind(fr_file, iostat = ierr) !rewind
         if(ierr .ne. 0) return
@@ -180,13 +151,19 @@ submodule (FRAME_READERS) XYZ_READER
 
         res = -1
 
-        if(allocated(fr_atoms)) then
-            deallocate(fr_atoms)
+        if(allocated(fr_frame%positions)) then
+            deallocate(fr_frame%positions)
         end if
-
-        fr_info%frame_number = 0
-        fr_info%n_atoms = 0
-        fr_info%has_velocities = .false.
+        if(allocated(fr_frame%velocities)) then
+            deallocate(fr_frame%velocities)
+        end if
+        if(allocated(fr_frame%names)) then
+            deallocate(fr_frame%names)
+        end if
+        
+        fr_frame%frame_number = 0
+        fr_frame%n_atoms = 0
+        fr_frame%has_velocities = .false.
 
         inquire(fr_file, opened = is_open)
         if(is_open) then
@@ -203,13 +180,17 @@ submodule (FRAME_READERS) XYZ_READER
         if(present(filename1)) then
             res = open_with_velocities(filename, filename1)
             if(res .eq. 0) then
-                fr_info%has_velocities = .true.
+                fr_frame%has_velocities = .true.
             end if
         else
             res = open_no_velocities(filename)
         end if
         
-        allocate(fr_atoms(fr_info%n_atoms), stat = ierr) !allocate space for atoms
+        allocate(fr_frame%positions(3,fr_frame%n_atoms), stat = ierr) !allocate space for atoms
+        if(ierr .ne. 0) return
+        allocate(fr_frame%velocities(3,fr_frame%n_atoms), stat = ierr) !allocate space for atoms
+        if(ierr .ne. 0) return
+        allocate(fr_frame%names(fr_frame%n_atoms), stat = ierr) !allocate space for atoms
         if(ierr .ne. 0) return
 
         res = 0
@@ -221,35 +202,30 @@ submodule (FRAME_READERS) XYZ_READER
         integer :: ierr
 
         res = -1
-        if(fr_info%has_velocities) then
+        if(fr_frame%has_velocities) then
             if(.not. read_header_with_velocities()) return 
         else
             if(.not. read_header_no_velocities()) return
         end if
 
         !check wheather the number of atoms changed, if yes, reallocate fr_atoms
-        if(fr_info%n_atoms .ne. prev_n_atoms) then
-            error_stop("gro reader does not support variable number of atoms") 
-            !well, it does if the line above is commented, but I dont want this functionality
-            if(allocated(fr_atoms)) then
-                deallocate(fr_atoms)
-            end if
-            allocate(fr_atoms(fr_info%n_atoms))
-            prev_n_atoms = fr_info%n_atoms
+        if(fr_frame%n_atoms .ne. prev_n_atoms) then
+            error_stop("xyz reader does not support variable number of atoms") 
+            !here one can implement variable number of atoms, but I dont want this functionality
         end if
 
         !TODO - now expecting that the atomnames match... (it should be checked)
-        if(fr_info%has_velocities) then
-            read(fr_file, *, iostat = ierr) (fr_atoms(i)%name, fr_atoms(i)%position, i = 1, fr_info%n_atoms)
+        if(fr_frame%has_velocities) then
+            read(fr_file, *, iostat = ierr) (fr_frame%names(i), fr_frame%positions(:,i), i = 1, fr_frame%n_atoms)
             res = ierr; if(ierr .ne. 0) return
-            read(fr_file1, *, iostat = ierr) (fr_atoms(i)%name, fr_atoms(i)%velocity, i = 1, fr_info%n_atoms)
+            read(fr_file1, *, iostat = ierr) (fr_frame%names(i), fr_frame%velocities(:,i), i = 1, fr_frame%n_atoms)
             res = ierr; if(ierr .ne. 0) return
         else
-            read(fr_file, *, iostat = ierr) (fr_atoms(i)%name, fr_atoms(i)%position, i = 1, fr_info%n_atoms)
+            read(fr_file, *, iostat = ierr) (fr_frame%names(i), fr_frame%positions(:,i), i = 1, fr_frame%n_atoms)
             res = ierr; if(ierr .ne. 0) return
         end if
 
-        fr_info%frame_number = fr_info%frame_number + 1
+        fr_frame%frame_number = fr_frame%frame_number + 1
         res = 0
         return
     end procedure xyz_read_frame
@@ -261,35 +237,30 @@ submodule (FRAME_READERS) XYZ_READER
         character(len=128) :: dummy
 
         res = -1
-        if(fr_info%has_velocities) then
+        if(fr_frame%has_velocities) then
             if(.not. read_header_with_velocities()) return 
         else
             if(.not. read_header_no_velocities()) return
         end if
 
         !check wheather the number of atoms changed, if yes, reallocate fr_atoms
-        if(fr_info%n_atoms .ne. prev_n_atoms) then
-            error_stop("gro reader does not support variable number of atoms") 
-            !well, it does if the line above is commented, but I dont want this functionality
-            if(allocated(fr_atoms)) then
-                deallocate(fr_atoms)
-            end if
-            allocate(fr_atoms(fr_info%n_atoms))
-            prev_n_atoms = fr_info%n_atoms
+        if(fr_frame%n_atoms .ne. prev_n_atoms) then
+            error_stop("xyz reader does not support variable number of atoms") 
+            !here one can implement variable number of atoms, but I dont want this functionality
         end if
 
         !TODO - now expecting that the atomnames match... (it should be checked)
-        if(fr_info%has_velocities) then
-            read(fr_file, "(A)", iostat = ierr) (dummy, i = 1, fr_info%n_atoms)
+        if(fr_frame%has_velocities) then
+            read(fr_file, "(A)", iostat = ierr) (dummy, i = 1, fr_frame%n_atoms)
             res = ierr; if(ierr .ne. 0) return
-            read(fr_file1, "(A)", iostat = ierr) (dummy, i = 1, fr_info%n_atoms)
+            read(fr_file1, "(A)", iostat = ierr) (dummy, i = 1, fr_frame%n_atoms)
             res = ierr; if(ierr .ne. 0) return
         else
-            read(fr_file, "(A)", iostat = ierr) (dummy, i = 1, fr_info%n_atoms)
+            read(fr_file, "(A)", iostat = ierr) (dummy, i = 1, fr_frame%n_atoms)
             res = ierr; if(ierr .ne. 0) return
         end if
 
-        fr_info%frame_number = fr_info%frame_number + 1
+        fr_frame%frame_number = fr_frame%frame_number + 1
         res = 0
     end procedure xyz_skip_frame
 
@@ -316,7 +287,7 @@ submodule (FRAME_READERS) XYZ_READER
             end if
         end if
         
-        fr_info%frame_number = 0
+        fr_frame%frame_number = 0
         res = 0
     end procedure xyz_rewind_file
 
@@ -339,11 +310,13 @@ submodule (FRAME_READERS) XYZ_READER
             fr_file1 = 0
         end if
 
-        if(allocated(fr_atoms)) deallocate(fr_atoms)
+        if(allocated(fr_frame%positions)) deallocate(fr_frame%positions)
+        if(allocated(fr_frame%velocities)) deallocate(fr_frame%velocities)
+        if(allocated(fr_frame%names)) deallocate(fr_frame%names)
         
-        fr_info%n_atoms = 0
-        fr_info%frame_number = 0
-        fr_info%has_velocities = .false.
+        fr_frame%n_atoms = 0
+        fr_frame%frame_number = 0
+        fr_frame%has_velocities = .false.
         res = 0 
     end procedure xyz_close_file
 
@@ -356,7 +329,7 @@ submodule (FRAME_READERS) XYZ_READER
         inquire(fr_file, opened = is_open)
         if(.not. is_open) return 
         
-        if(fr_info%has_velocities) then 
+        if(fr_frame%has_velocities) then 
             inquire(fr_file1, opened = is_open)
             if(.not. is_open) return
         end if

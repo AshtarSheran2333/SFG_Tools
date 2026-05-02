@@ -1,18 +1,16 @@
 module FRAME_READERS
     use, intrinsic :: iso_fortran_env, only: real64, int64, int32, real32
     implicit none
-    
-    type :: fr_atom
-        real(real64), dimension(3) ::                       position = (/0.0, 0.0, 0.0/)
-        real(real64), dimension(3) ::                       velocity = (/0.0, 0.0, 0.0/)
-        character(len=5) ::                                 name = ''
-    end type fr_atom
 
-    type :: fr_information
+    type :: fr_current_frame
+        real(real64), dimension(:,:), allocatable ::        positions
+        real(real64), dimension(:,:), allocatable ::        velocities
+        character(len=5), dimension(:), allocatable ::      names
+
         integer(int64) ::                                   frame_number = 0
         integer(int64) ::                                   n_atoms = 0
         logical ::                                          has_velocities = .false.
-    end type fr_information
+    end type fr_current_frame
     
     type, abstract :: frame_reader
         
@@ -66,8 +64,7 @@ module FRAME_READERS
     real(real64), parameter ::                              nmpps_to_hartree = 21.876912635 !nm/ps -> a_0*E_h/(reduced planck)
     real(real64), parameter ::                              nm_to_angstrom = 10
 
-    type(fr_atom), dimension(:), allocatable, protected ::  fr_atoms
-    type(fr_information), protected ::                      fr_info
+    type(fr_current_frame), protected ::                    fr_frame
 
     integer, private ::                                     fr_file = 0, fr_file1 = 0
     integer(int64), private ::                              prev_n_atoms = 0                                       

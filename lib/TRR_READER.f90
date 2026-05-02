@@ -265,30 +265,28 @@ submodule (FRAME_READERS) TRR_READER
         if( (element_sz * 3 * reader%header%n_atoms) .ne. reader%header%sizes%pos_size ) &
             error_stop("position size is not congruent with the number of atoms")
         
-        if(reader%header%n_atoms .ne. size(fr_atoms)) &
-            error_stop("trr reader internal n_atoms does not match the trr header n_atoms")
-        
+        if( reader%header%n_atoms .ne. size(fr_frame%positions,2) ) &
+            error_stop("trr reader internal arrays size does not match the trr header n_atoms")
+            
         if( (element_sz .ne. 4) .and. (element_sz .ne. 8) ) &
             error_stop("trr positions are neither single nor double precision")
         
         if(element_sz .eq. 8) then
             !read double precision
-            read(fr_file, iostat = ierr) (fr_atoms(i)%position, i = 1, reader%header%n_atoms) 
+            read(fr_file, iostat = ierr) (fr_frame%positions(:,i), i = 1, reader%header%n_atoms) 
         else
             !read single precision, store in double precision
             do i = 1, reader%header%n_atoms
                   read(fr_file, iostat = ierr) read_sp
                   if(ierr .ne. 0) exit
-                  fr_atoms(i)%position = read_sp
+                  fr_frame%positions(:,i) = read_sp
             end do
         end if
 
         if(ierr .ne. 0) return !something went wrong
 
         !convert the positions
-        do i = 1, size(fr_atoms)
-            fr_atoms(i)%position = fr_atoms(i)%position * nm_to_angstrom
-        end do
+        fr_frame%positions = fr_frame%positions * nm_to_angstrom
         
         res = .true.
     end function read_positions
@@ -306,10 +304,7 @@ submodule (FRAME_READERS) TRR_READER
         res = .false.
         
         if(reader%header%sizes%vel_size .eq. 0) then
-            if(fr_info%has_velocities) return !error, config changed
-            res = .true.
-            fr_info%has_velocities = .false.
-            return !nothing to read
+            if(fr_frame%has_velocities) return !error, config changed
         end if
 
         inquire(fr_file, opened = is_open)
@@ -320,7 +315,7 @@ submodule (FRAME_READERS) TRR_READER
         if( (element_sz * 3 * reader%header%n_atoms) .ne. reader%header%sizes%vel_size ) &
             error_stop("trr velocity size is not congruent with the number of atoms")
         
-        if(reader%header%n_atoms .ne. size(fr_atoms)) &
+        if( reader%header%n_atoms .ne. size(fr_frame%velocities,2) ) &
             error_stop("trr reader internal n_atoms does not match the trr header n_atoms")
         
         if( (element_sz .ne. 4) .and. (element_sz .ne. 8) ) &
@@ -328,24 +323,22 @@ submodule (FRAME_READERS) TRR_READER
         
         if(element_sz .eq. 8) then
             !read double precision
-            read(fr_file, iostat = ierr) (fr_atoms(i)%velocity, i = 1, reader%header%n_atoms) 
+            read(fr_file, iostat = ierr) (fr_frame%velocities(:,i), i = 1, reader%header%n_atoms) 
         else
             !read single precision, store in double precision
             do i = 1, reader%header%n_atoms
                   read(fr_file, iostat = ierr) read_sp
                   if(ierr .ne. 0) exit
-                  fr_atoms(i)%velocity = read_sp
+                  fr_frame%velocities(:,i) = read_sp
             end do
         end if
 
         if(ierr .ne. 0) return !something went wrong
 
         !convert the velocities
-        do i = 1, size(fr_atoms)
-            fr_atoms(i)%velocity = fr_atoms(i)%velocity * nmpps_to_hartree
-        end do
+        fr_frame%velocities = fr_frame%velocities * nmpps_to_hartree
 
-        fr_info%has_velocities = .true.
+        fr_frame%has_velocities = .true.
         res = .true.
     end function read_velocities
 
@@ -397,15 +390,15 @@ submodule (FRAME_READERS) TRR_READER
         read(fr_file1, *, iostat = ierr) natoms !read natoms
         if(ierr .ne. 0) return
         
-        if(natoms .ne. fr_info%n_atoms) return
+        if(natoms .ne. fr_frame%n_atoms) return
         
-        if(.not. allocated(fr_atoms)) return !fr_atoms must be allocated
-        if(size(fr_atoms) .ne. fr_info%n_atoms) return !fr_atoms size must correspond to the file
+        if(.not. allocated(fr_frame%names)) return !fr_atoms must be allocated
+        if(size(fr_frame%names) .ne. fr_frame%n_atoms) return !fr_atoms size must correspond to the file
         
         !fill in the atoms
         read(fr_file1, "(I5,2A5)", iostat = ierr) &
-            (dummy_int, dummy_str, fr_atoms(natoms)%name,&
-            natoms = 1, fr_info%n_atoms)
+            (dummy_int, dummy_str, fr_frame%names(natoms),&
+            natoms = 1, fr_frame%n_atoms)
 
         if(ierr .ne. 0) return
         
@@ -424,14 +417,20 @@ submodule (FRAME_READERS) TRR_READER
         ! - should work even if the following line is commented out
         if(.not. present(filename1)) error_stop("trr_open_file must be called with both arguments")
         
-        if(allocated(fr_atoms)) then
-            deallocate(fr_atoms)
+        if(allocated(fr_frame%positions)) then
+            deallocate(fr_frame%positions)
+        end if
+        if(allocated(fr_frame%velocities)) then
+            deallocate(fr_frame%velocities)
+        end if
+        if(allocated(fr_frame%names)) then
+            deallocate(fr_frame%names)
         end if
         
-        fr_info%frame_number = 0
-        fr_info%n_atoms = 0
-        fr_info%has_velocities = .false.
-        
+        fr_frame%frame_number = 0
+        fr_frame%n_atoms = 0
+        fr_frame%has_velocities = .false.
+
         inquire(fr_file, opened = is_open)
         if(is_open) then
             close(fr_file)
@@ -448,12 +447,16 @@ submodule (FRAME_READERS) TRR_READER
         
         if(.not. read_header(this)) return
         
-        fr_info%n_atoms = this%header%n_atoms
-        prev_n_atoms = fr_info%n_atoms
+        fr_frame%n_atoms = this%header%n_atoms
+        prev_n_atoms = fr_frame%n_atoms
 
-        if(this%header%sizes%vel_size > 0) fr_info%has_velocities = .true.
+        if(this%header%sizes%vel_size > 0) fr_frame%has_velocities = .true.
 
-        allocate(fr_atoms(this%header%n_atoms), stat = ierr) !allocate space for atoms
+        allocate(fr_frame%positions(3,fr_frame%n_atoms), stat = ierr) !allocate space for atoms
+        if(ierr .ne. 0) return
+        allocate(fr_frame%velocities(3,fr_frame%n_atoms), stat = ierr) !allocate space for atoms
+        if(ierr .ne. 0) return
+        allocate(fr_frame%names(fr_frame%n_atoms), stat = ierr) !allocate space for atoms
         if(ierr .ne. 0) return
         
         rewind(fr_file, iostat = ierr) !rewind
@@ -477,13 +480,7 @@ submodule (FRAME_READERS) TRR_READER
         !check wheather the number of atoms changed, if yes, reallocate fr_atoms
         if(this%header%n_atoms .ne. prev_n_atoms) then
             error_stop("trr reader does not support variable number of atoms") 
-            !well, it does if the line above is commented, but I dont want this functionality
-            !since updating the atomnames would be pain in the ass
-            if(allocated(fr_atoms)) then
-                deallocate(fr_atoms)
-            end if
-            allocate(fr_atoms(this%header%n_atoms))
-            prev_n_atoms = this%header%n_atoms
+            !here one can implement variable number of atoms, but I dont want this functionality
         end if
         
         res = -3; if(.not. read_ir(this)) return
@@ -497,7 +494,7 @@ submodule (FRAME_READERS) TRR_READER
         res = -11; if(.not. read_velocities(this)) return
         res = -12; if(.not. read_forces(this)) return
 
-        fr_info%frame_number = fr_info%frame_number + 1
+        fr_frame%frame_number = fr_frame%frame_number + 1
         res = 0;
     end procedure trr_read_frame
 
@@ -517,7 +514,7 @@ submodule (FRAME_READERS) TRR_READER
         read(fr_file, pos = position + offset, iostat = ierr) !skips the data block
         if(ierr .ne. 0) return
 
-        fr_info%frame_number = fr_info%frame_number + 1
+        fr_frame%frame_number = fr_frame%frame_number + 1
         res = 0
     end procedure trr_skip_frame
 
@@ -535,7 +532,7 @@ submodule (FRAME_READERS) TRR_READER
             return
         end if
         
-        fr_info%frame_number = 0
+        fr_frame%frame_number = 0
         res = 0
     end procedure trr_rewind_file
 
@@ -551,11 +548,13 @@ submodule (FRAME_READERS) TRR_READER
 
         fr_file = 0
 
-        if(allocated(fr_atoms)) deallocate(fr_atoms)
+        if(allocated(fr_frame%positions)) deallocate(fr_frame%positions)
+        if(allocated(fr_frame%velocities)) deallocate(fr_frame%velocities)
+        if(allocated(fr_frame%names)) deallocate(fr_frame%names)
         
-        fr_info%n_atoms = 0
-        fr_info%frame_number = 0
-        fr_info%has_velocities = .false.
+        fr_frame%n_atoms = 0
+        fr_frame%frame_number = 0
+        fr_frame%has_velocities = .false.
         res = 0 
     end procedure trr_close_file
 
