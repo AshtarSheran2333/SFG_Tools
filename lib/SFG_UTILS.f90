@@ -3,6 +3,7 @@
 !
 !   This module stores some general functions and routines that might be useful
 !   throughout the whole process
+!   The constants will be here too...
 !
 !   e.g. operator for cross product, pbc alignment...
 !
@@ -11,6 +12,8 @@
 module SFG_UTILS
     use iso_fortran_env
     implicit none
+
+    real(real64), parameter :: pi = acos(-1.0_real64)
 
     contains
     
