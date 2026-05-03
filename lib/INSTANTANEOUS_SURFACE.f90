@@ -20,7 +20,7 @@ module INSTANTANEOUS_SURFACE
     type(instantaneous_surface_structure), allocatable, protected :: instasurf
     
 contains
-    
+
     subroutine instasurf_init(box, volume_element, corner) !TODO work with BOXDATA
         implicit none
         real(real64), dimension(3), intent(in) :: box, volume_element, corner
@@ -161,6 +161,51 @@ contains
         if(res < 0) write(error_unit,"(A)") "ERROR: instasurf did not find all the points of interface grid"
         !TODO - here we potentially can look for the neighbor points and try to interpolate the missing points, but this should not happen
     end function instasurf_calculate
+
+    function instasurf_get_distances(point, box, corner) result(distances) !TODO BOXDATA
+        implicit none
+        real(real64), dimension(3), intent(in) :: point, box, corner
+        real(real64), dimension(3) :: diff
+        real(real64) :: xgrid, ygrid, xt, yu
+        real(real64), dimension(2) :: distances
+        integer(int32) :: x, x1, y, y1
+        
+        diff = pbc_minimum_image(point, box, corner)
+        
+        !find where the point belongs on the grid
+        !X
+        x = int((diff(1) - (instasurf%start(1) + instasurf%volume_element(1))) / instasurf%volume_element(1)) + 1
+        x1 = x + 1
+        !Y
+        y = int((diff(2) - (instasurf%start(2) + instasurf%volume_element(2))) / instasurf%volume_element(2)) + 1
+        y1 = y + 1
+
+        !deal with the edge cases
+        if(x > instasurf%n_points(1)) x = 1
+        if(x1 > instasurf%n_points(1)) x1 = 1
+        if(y > instasurf%n_points(2)) y = 1
+        if(y1 > instasurf%n_points(2)) y1 = 1
+        
+        xgrid = instasurf%start(1) + x*instasurf%volume_element(1)
+        ygrid = instasurf%start(2) + y*instasurf%volume_element(2)
+        
+        xt = (diff(1)-xgrid)/(instasurf%volume_element(1))
+        yu = (diff(2)-ygrid)/(instasurf%volume_element(2))
+        
+        !interface z
+        distances(2) = (1-xt)*(1-yu)*instasurf%up_mesh(x,y) &
+                    + xt*(1-yu)*instasurf%up_mesh(x1,y) &
+                    + (1-xt)*yu*instasurf%up_mesh(x,y1) &
+                    + xt*yu*instasurf%up_mesh(x1,y1)
+
+        distances(1) = (1-xt)*(1-yu)*instasurf%bot_mesh(x,y) &
+                    + xt*(1-yu)*instasurf%bot_mesh(x1,y) &
+                    + (1-xt)*yu*instasurf%bot_mesh(x,y1) &
+                    + xt*yu*instasurf%bot_mesh(x1,y1)
+        !distance from the interface
+        distances(1) = diff(3) - distances(1)
+        distances(2) = distances(2) - diff(3)
+    end function
 
     subroutine instasurf_open_file()!(name, filetype)
         !open the instantaneous surfcace file
