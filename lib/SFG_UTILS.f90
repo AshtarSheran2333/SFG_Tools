@@ -27,12 +27,12 @@ module SFG_UTILS
             !shift to the box frame
             image = vector - corner
             !get minimum image
-            image = image - box * floor( (image+0.5) / box)
+            image = image - box * ANINT( (image) / box)
             !shift the image to the correct position
             image = image + corner
         else
             !just get the minimum image
-            image = image - box * floor( (image+0.5) / box)
+            image = vector - box * ANINT( (vector) / box)
         end if
             
     end function pbc_minimum_image
