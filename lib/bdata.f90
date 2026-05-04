@@ -635,8 +635,8 @@ subroutine print_recap(this)
 	print "(A40,5X,F10.3)", adjustl(""), this%box_dimensions(2)
 	print "(A40,5X,F10.3)", adjustl(""), this%box_dimensions(3)
 	print "(A40,5X,F10.3)", adjustl("INTERFACE_VOLUME_ELEMENT"), this%interface_volume_element(1)
-	print "(A40,5X,F10.3)", adjustl(""), this%interface_volume_element(1)
-	print "(A40,5X,F10.3)", adjustl(""), this%interface_volume_element(1)
+	print "(A40,5X,F10.3)", adjustl(""), this%interface_volume_element(2)
+	print "(A40,5X,F10.3)", adjustl(""), this%interface_volume_element(3)
 	!todo
 	print "(A40,5X,F10.3)", adjustl("LAYERS_LIMITS"), this%layers_limits(1)
 	do i = 2, this%layersCount-1
