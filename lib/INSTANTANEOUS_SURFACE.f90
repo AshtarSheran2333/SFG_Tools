@@ -5,11 +5,11 @@ module INSTANTANEOUS_SURFACE
     implicit none
     
     type :: instantaneous_surface_structure
+        integer(int32), dimension(3) :: n_points !number of iterations through space
+        real(real64), dimension(3) :: volume_element
+        real(real64), dimension(3) :: start !corner of the mesh
         real(real64), dimension(:,:), allocatable :: up_mesh
         real(real64), dimension(:,:), allocatable :: bot_mesh
-        integer(int32), dimension(3) :: n_points !number of iterations through space
-        real(real64), dimension(3) :: start !corner of the mesh
-        real(real64), dimension(3) :: volume_element
         integer(int32), dimension(:,:), allocatable :: up_index !index of iteration to get the point
         integer(int32), dimension(:,:), allocatable :: bot_index !index of iteration to get the point
     end type instantaneous_surface_structure
@@ -207,24 +207,114 @@ contains
         distances(2) = distances(2) - diff(3)
     end function
 
-    subroutine instasurf_open_file()!(name, filetype)
+    function instasurf_write_grid_interface(filename) result(res)
+        character(*), intent(IN), optional :: filename
+        integer :: ierr, file_unit, res
+        logical :: is_open
+        
+        if(present(filename)) then
+            open(newunit = file_unit, file=trim(adjustl(filename)), iostat = ierr)
+        else
+            open(newunit = file_unit, file="grid_interface.dat", iostat = ierr)
+        end if
+        
+        if(ierr .ne. 0) then !unable to open file
+            res = ierr
+            return
+        end if
+        
+        !write things...
+        associate( np => instasurf%n_points, &
+                    s => (instasurf%start + instasurf%volume_element), &
+                    e => (instasurf%start + instasurf%n_points * instasurf%volume_element) )
+        
+        if(ierr == 0) write(file_unit,"('========== INTERFACE_GRID ==========')", iostat = ierr)
+        if(ierr == 0) write(file_unit,"('| d | n_po |   start   |    end    |')", iostat = ierr)
+        if(ierr == 0) write(file_unit,"('| X | ',I4,' | ',F9.3,' | ',F9.3,' |')", iostat = ierr) np(1), s(1), e(1)
+        if(ierr == 0) write(file_unit,"('| Y | ',I4,' | ',F9.3,' | ',F9.3,' |')", iostat = ierr) np(2), s(2), e(2)
+        if(ierr == 0) write(file_unit,"('| Z | ',I4,' | ',F9.3,' | ',F9.3,' |')", iostat = ierr) np(3), s(3), e(3)
+        if(ierr == 0) write(file_unit,"('====================================')", iostat = ierr)
+        
+        end associate
+
+        if(ierr == 0) close(file_unit)
+        
+        res = ierr
+        
+    end function instasurf_write_grid_interface
+
+    function instasurf_open_bin_file(read_only, must_exist, name) result(res)
+        character(*), intent(in), optional :: name
+        logical, intent(in), optional :: read_only, must_exist
+        character(128) :: file_name
+        integer :: res
+        logical :: is_open
+        character(20) :: act, stat
+        
+        inquire(instasurf_bin_unit, opened = is_open)
+        if(is_open) close(instasurf_bin_unit)
+        
+        file_name = "interface.bin"
+        stat = 'UNKNOWN'
+        act = 'READWRITE'
+        
+        
+        if(present(name)) then
+            file_name = trim(adjustl(name))
+        end if
+        
+        if(present(must_exist)) then
+            if(must_exist) stat = 'OLD'
+        end if
+
+        if(present(read_only)) then
+            if(read_only) act = 'READ'
+        end if
+            
+        open(newunit = instasurf_bin_unit, file = trim(adjustl(file_name)), status = stat, action = act, iostat = res)
+    end function
+
+    function instasurf_open_xyz_file(name) result(res)
+        character(*), intent(in), optional :: name
+        logical :: is_open
+        integer :: res
+        character(128) :: file_name
+        
+        inquire(instasurf_xyz_unit, opened = is_open)
+        if(is_open) close(instasurf_bin_unit)
+
+        file_name = "interface.xyz"
+        
+        if(present(name)) then
+            file_name = trim(adjustl(name))
+        end if
+        
+        open(newunit = instasurf_xyz_unit, file = trim(adjustl(file_name)), iostat = res)
+    end subroutine
+
+    subroutine instasurf_write_bin_file()!(name)
         !open the instantaneous surfcace file
         stop "NOT IMPLEMENTED"
     end subroutine
-    
-    subroutine instasurf_print()!(filetype)
-        !print the instantaneous surface into a file
+
+    subroutine instasurf_write_xyz_file()!(name)
+        !open the instantaneous surfcace file
         stop "NOT IMPLEMENTED"
-    end subroutine instasurf_print
+    end subroutine
 
     subroutine instasurf_read_next()!(filetype)
         !read the instantaneous surface from a file
         stop "NOT IMPLEMENTED"
     end subroutine instasurf_read_next
 
-    subroutine instasurf_close_file()!(filetype)
+    subroutine instasurf_close_bin_file()!
         !close the instantaneous surface file
         stop "NOT IMPLEMENTED"
-    end subroutine instasurf_close_file 
+    end subroutine instasurf_close_bin_file 
     
+    subroutine instasurf_close_xyz_file()!
+        !close the instantaneous surface file
+        stop "NOT IMPLEMENTED"
+    end subroutine instasurf_close_xyz_file 
+
 end module
