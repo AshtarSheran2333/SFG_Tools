@@ -45,9 +45,25 @@ contains
         allocate(instasurf%bot_mesh(i,j))
         allocate(instasurf%up_index(i,j))
         allocate(instasurf%bot_index(i,j))
-        
+
         end associate
+
+        instasurf%up_mesh = 0.0
+        instasurf%bot_mesh = 0.0
+        instasurf%up_index = instasurf%n_points(3)
+        instasurf%bot_index = 1
+        
     end subroutine instasurf_init
+
+    subroutine instasurf_init_flat(box, volume_element, corner, bot, up)
+        real(real64), intent(in) :: bot, up
+        real(real64), dimension(3), intent(in) :: box, volume_element, corner
+
+        call instasurf_init(box, volume_element, corner)
+
+        instasurf%up_mesh = up
+        instasurf%bot_mesh = bot
+    end subroutine instasurf_init_flat
 
     function instasurf_calculate(atom_selection, graining_len, density_threshold, pushback) result(res)
         implicit none
@@ -91,7 +107,7 @@ contains
                         diff = atom_pos - pos
                         end associate
                         !pbc correction              
-                        diff = pbc_minimum_image(diff, (/10.0_real64,10.0_real64,10.0_real64/)) !TODO BOXDATA CORNER!!! 
+                        diff = pbc_minimum_image(diff, (/14.0_real64,14.0_real64,100.0_real64/)) !TODO BOXDATA CORNER!!! 
                         r = norm2(diff)
                         !cutoff after 3 sigma, the value would be too small, save some calculation time
                         if( r <= 3*graining_len ) then
@@ -102,13 +118,15 @@ contains
                     !shaping the rho
                     prev_rhodiff = rhodiff
                     rhodiff = abs(density_threshold - rho)
-            
+                    
                     !if the positive derivative is found -> we have found the interface
-                    if( (prev_rhodiff < density_threshold) .and. (rhodiff > prev_rhodiff) ) then
-                        found_bot_interface = .true.
-                        instasurf%bot_mesh(i,j) = prev_pos(3)
-                        instasurf%bot_index(i,j) = k - 1
-                        exit
+                    if(prev_rhodiff < 0.004) then
+                        if(rhodiff > prev_rhodiff) then !TODO 0.004 -> tollerance
+                            found_bot_interface = .true.
+                            instasurf%bot_mesh(i,j) = prev_pos(3)
+                            instasurf%bot_index(i,j) = k - 1
+                            exit
+                        end if
                     end if
                 end do
                 
@@ -128,7 +146,7 @@ contains
                         diff = atom_pos - pos
                         end associate
                         !pbc correction              
-                        diff = pbc_minimum_image(diff, (/10.0_real64,10.0_real64,10.0_real64/)) !TODO BOXDATA CORNER!!! 
+                        diff = pbc_minimum_image(diff, (/14.0_real64,14.0_real64,100.0_real64/)) !TODO BOXDATA CORNER!!! 
                         r = norm2(diff)
                         !cutoff after 3 sigma, the value would be too small, save some calculation time
                         if( r <= 3*graining_len ) then
@@ -141,11 +159,13 @@ contains
                     rhodiff = abs(density_threshold - rho)
             
                     !if the positive derivative is found -> we have found the interface
-                    if( (prev_rhodiff < density_threshold) .and. (rhodiff > prev_rhodiff) ) then
+                    if(prev_rhodiff < 0.004) then
+                        if(rhodiff > prev_rhodiff) then !TODO 0.004 -> tollerance
                         found_up_interface = .true.
                         instasurf%up_mesh(i,j) = prev_pos(3)
                         instasurf%up_index(i,j) = k - 1
                         exit
+                        end if
                     end if
 
                 end do
@@ -271,7 +291,13 @@ contains
             if(read_only) act = 'READ'
         end if
             
-        open(newunit = instasurf_bin_unit, file = trim(adjustl(file_name)), status = stat, action = act, iostat = res)
+        open(newunit = instasurf_bin_unit, &
+                file = trim(adjustl(file_name)), &
+                status = stat, &
+                action = act, &
+                form = "unformatted", &
+                access="stream", &
+                iostat = res)
     end function
 
     function instasurf_open_xyz_file(name) result(res)
@@ -281,7 +307,7 @@ contains
         character(128) :: file_name
         
         inquire(instasurf_xyz_unit, opened = is_open)
-        if(is_open) close(instasurf_bin_unit)
+        if(is_open) close(instasurf_xyz_unit)
 
         file_name = "interface.xyz"
         
@@ -289,32 +315,77 @@ contains
             file_name = trim(adjustl(name))
         end if
         
-        open(newunit = instasurf_xyz_unit, file = trim(adjustl(file_name)), iostat = res)
-    end subroutine
+        open(newunit = instasurf_xyz_unit, &
+                file = trim(adjustl(file_name)), &
+                iostat = res)
+    end function
 
-    subroutine instasurf_write_bin_file()!(name)
+    subroutine instasurf_write_bin_file()
         !open the instantaneous surfcace file
+        !npoints, volume_element, start, up_mesh, bot_mesh
         stop "NOT IMPLEMENTED"
     end subroutine
 
-    subroutine instasurf_write_xyz_file()!(name)
-        !open the instantaneous surfcace file
-        stop "NOT IMPLEMENTED"
-    end subroutine
+    function instasurf_write_xyz_frame() result(res)
+        logical :: is_open
+        integer :: res, i, j
+        
+        inquire(instasurf_xyz_unit, opened = is_open)
+        if(.not. is_open) then
+            res = -1
+            return
+        end if
+        
+        res = 0
+        
+        if(res == 0) write(instasurf_xyz_unit, "(I0)", iostat = res) (size(instasurf%bot_mesh) + size(instasurf%up_mesh)) !number of points
+        if(res == 0) write(instasurf_xyz_unit, "(A,I0,A,I0,A)", iostat = res) "bot (", size(instasurf%bot_mesh), ") and up (", size(instasurf%up_mesh), ") interface mesh"
 
-    subroutine instasurf_read_next()!(filetype)
+        if(res == 0) then
+            do i = 1, size(instasurf%bot_mesh,1)
+                do j = 1, size(instasurf%bot_mesh,2)
+                    associate( x => instasurf%start(1) + i*instasurf%volume_element(1), &
+                                y => instasurf%start(2) + j*instasurf%volume_element(2), &
+                                z => instasurf%bot_mesh(i,j) )
+                    
+                    write(instasurf_xyz_unit, "(A, 3F8.3)", iostat = res) "P", x, y, z      
+                    if(res .ne. 0) return
+
+                    end associate
+                end do
+            end do
+
+            do i = 1, size(instasurf%up_mesh,1)
+                do j = 1, size(instasurf%up_mesh,2)
+                    associate( x => instasurf%start(1) + i*instasurf%volume_element(1), &
+                                y => instasurf%start(2) + j*instasurf%volume_element(2), &
+                                z => instasurf%up_mesh(i,j) )
+                    
+                    write(instasurf_xyz_unit, "(A, 3F8.3)", iostat = res) "P", x, y, z      
+                    if(res .ne. 0) return
+
+                    end associate
+                end do
+            end do
+        end if
+
+    end function instasurf_write_xyz_frame
+
+    subroutine instasurf_read_next()
         !read the instantaneous surface from a file
         stop "NOT IMPLEMENTED"
     end subroutine instasurf_read_next
 
     subroutine instasurf_close_bin_file()!
-        !close the instantaneous surface file
-        stop "NOT IMPLEMENTED"
+        logical :: is_open
+        inquire(instasurf_bin_unit, opened = is_open)
+        if(is_open) close(instasurf_bin_unit)
     end subroutine instasurf_close_bin_file 
     
-    subroutine instasurf_close_xyz_file()!
-        !close the instantaneous surface file
-        stop "NOT IMPLEMENTED"
+    subroutine instasurf_close_xyz_file()
+        logical :: is_open
+        inquire(instasurf_xyz_unit, opened = is_open)
+        if(is_open) close(instasurf_xyz_unit)
     end subroutine instasurf_close_xyz_file 
 
 end module
