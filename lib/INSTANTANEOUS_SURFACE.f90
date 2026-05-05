@@ -39,7 +39,7 @@ contains
         !allocate containers
         
         associate( i => instasurf%n_points(1), &
-                   j => instasurf%n_points(1))
+                   j => instasurf%n_points(2))
 
         allocate(instasurf%up_mesh(i,j))
         allocate(instasurf%bot_mesh(i,j))
@@ -79,6 +79,8 @@ contains
         real(real64), dimension(3) :: pos, prev_pos, diff
         real(real64) :: rho, rhodiff, prev_rhodiff, r
 
+        res = 0
+        
         !$OMP PARALLEL DO &
         !$OMP DEFAULT(NONE) &
         !$OMP SHARED(instasurf, fr_frame, atom_selection, pushback, graining_len, density_threshold) &
@@ -107,7 +109,7 @@ contains
                         diff = atom_pos - pos
                         end associate
                         !pbc correction              
-                        diff = pbc_minimum_image(diff, (/14.0_real64,14.0_real64,100.0_real64/)) !TODO BOXDATA CORNER!!! 
+                        diff = pbc_minimum_image(diff, (/60.5710_real64,60.5710_real64,80.0_real64/)) !TODO BOXDATA CORNER!!! 
                         r = norm2(diff)
                         !cutoff after 3 sigma, the value would be too small, save some calculation time
                         if( r <= 3*graining_len ) then
@@ -146,7 +148,7 @@ contains
                         diff = atom_pos - pos
                         end associate
                         !pbc correction              
-                        diff = pbc_minimum_image(diff, (/14.0_real64,14.0_real64,100.0_real64/)) !TODO BOXDATA CORNER!!! 
+                        diff = pbc_minimum_image(diff, (/60.5710_real64,60.5710_real64,80.0_real64/)) !TODO BOXDATA CORNER!!! 
                         r = norm2(diff)
                         !cutoff after 3 sigma, the value would be too small, save some calculation time
                         if( r <= 3*graining_len ) then
