@@ -3,14 +3,14 @@ program interf
 use iso_fortran_env
 use INTERFACE_UI
 use FRAME_READERS
-use bdata
+use BOXDATA
 USE INSTANTANEOUS_SURFACE
 
 implicit none
 
 #include "utils_error_macros.h"
 
-type(boxdata) ::                                            bd
+type(boxdata_type) ::                                       bd
 
 class(frame_reader), pointer ::                             fr
 type(trr_frame_reader), allocatable, target ::              trr
@@ -25,9 +25,9 @@ real*8, dimension(:,:), allocatable ::                      density_function
 real*8, dimension(:), allocatable ::						density_axis
 
 real*8, dimension(3) ::                                     prev_rod_pos,&
-															rod_pos,&
-															rod_start,&
-															diff
+                                                            rod_pos,&
+                                                            rod_start,&
+                                                            diff
 !rod_pos replaces l1, l2, l3 --- coordinates of "poking rod"
 !diff replaces xdiff, ydiff, zdiff --- stores temporary distance of oxygen atoms from "poking rod"
 !rod_start replaces fx, fy, fz --- coordinates of rod starting position
@@ -42,24 +42,24 @@ integer*8, dimension(3) ::                                  n_points
 !n_points replaces nlx, nly, nlz --- number of divisions in each direction given by dividing boxdimensions by dl
 
 integer, dimension(2) ::                                    uji,&
-															dji
+                                                            dji
 
 integer ::                                                  ierr,&
-															f_interface,&
-															f_grid_interface,&
-															f_interfacebin
+                                                            f_interface,&
+                                                            f_grid_interface,&
+                                                            f_interfacebin
 
 real*8 ::                                                   r,&
-															p,&
-															pdiff,&
-															u,&
-															urmin,&
-															drmin,&
-															uzdiff,&
-															dzdiff,&
-															zcenter,&
-															search_radius,&
-															prev_pdiff
+                                                            p,&
+                                                            pdiff,&
+                                                            u,&
+                                                            urmin,&
+                                                            drmin,&
+                                                            uzdiff,&
+                                                            dzdiff,&
+                                                            zcenter,&
+                                                            search_radius,&
+                                                            prev_pdiff
 !r - distance of given oxygen atom from the end of "poking rod"
 !p - sum[oxygen atoms] if condition is met - exp(-r**2/(2*E**2))/((2*pi*E**2)**1.5)
 !u
@@ -70,14 +70,14 @@ real*8 ::                                                   r,&
 !zcenter - z coordinate approximately in the middle of water slab
 
 integer*8 ::                                                step,&
-															d,&
-															i,&
-															j,&
-															k,&
-															m,&
-															s,&
-															nop,&
-															temp
+                                                            d,&
+                                                            i,&
+                                                            j,&
+                                                            k,&
+                                                            m,&
+                                                            s,&
+                                                            nop,&
+                                                            temp
 !step - iterator through steps
 !d - sumcheck of points each frame -> should be allways n_points(1)*n_points(2)*2
 !i,j,k -general iterators
@@ -85,25 +85,23 @@ integer*8 ::                                                step,&
 !s -temporary storage for writing step number to the output file
 
 logical ::                                                  found_uper_interface,&
-															found_bottom_interface,&
-															vmdout = .FALSE.,&
-															vmdpbc = .TRUE.,&
-															bin_header_done = .FALSE.,&
-															nocheck = .false.
+                                                            found_bottom_interface,&
+                                                            vmdout = .FALSE.,&
+                                                            vmdpbc = .TRUE.,&
+                                                            bin_header_done = .FALSE.,&
+                                                            nocheck = .false.
 !found_uper_interface/min holds up info if given point met conditions to become rod_max/min  
 
 character(len = 256) ::                                     errmsg
 
 character(len=60), allocatable ::                           arg,&
-															arg1
+                                                            arg1
 
 real*8, parameter ::                                        &
-															E=2.4,&
-															tollerance=0.004,&
-															waterDensity=0.03336 !N/A^3
+                                                            E=2.4,&
+                                                            tollerance=0.004,&
+                                                            waterDensity=0.03336 !N/A^3
 
-
-integer(int32), allocatable, dimension(:) :: atom_sel
 !##########################################EVALUATE PROGRAM SWITCHES###########################################
 
 call evaluate_program_options()
@@ -111,19 +109,19 @@ call evaluate_program_options()
 !TODO deal with frame reader
 select case(ui_filetype)
 case (ui_filetype_gro)
-	allocate(gro)
+    allocate(gro)
     fr => gro
     error_io_check(fr%open_file(ui_filename1), "unable to open file")
 case default
-	!TODO other filetypes
-	error_stop("unknown input filetype")
+    !TODO other filetypes
+    error_stop("unknown input filetype")
 end select
 
 
 call bd%read_boxdata()
 
 ! TODO init instasurf & its files
-call instasurf_init(bd%box_dimensions, bd%interface_volume_element, (/0.0_real64, 0.0_real64, 0.0_real64/))
+call instasurf_init(bd)
 
 error_io_check(instasurf_write_grid_interface(), "unable to write grid")
 error_io_check(instasurf_open_xyz_file(), "unable to open interface.xyz")
@@ -133,67 +131,58 @@ error_io_check(instasurf_open_xyz_file(), "unable to open interface.xyz")
 !TODO main loop
 
 do step = 1, bd%NSTEP, bd%INTERFACE_SKIP
-	
-	print "(a,a,i,$)", char(13), "STEP: ", step
-	
-	error_io_check(fr%read_frame(), "unable to read a frame") !reading frame
-	
-	!estimating center of the water slab TODO each step?
-	if (step == 0) then
-		print*, ""
-		print*, "estimating center of the water slab..."
-		zcenter = 0
-		do i = 1, bd%NO
-			!zcenter = zcenter + fr%molecule(i)%o%position(3)
-		end do
+    
+    print "(a,a,i,$)", char(13), "STEP: ", step
+    
+    error_io_check(fr%read_frame(), "unable to read a frame") !reading frame
+    
+    !estimating center of the water slab TODO each step?
+    if (step == 0) then
+        print*, ""
+        print*, "estimating center of the water slab..."
+        zcenter = 0
 
-		!if(bd%NO .ne. size(fr%molecule(:))) then
-		!	print*, "number of oxygens in BOXDATA file ", bd%NO, " does not match the number of oxygens in the frame ", size(fr%molecule(:))
-		!	exit
-		!endif
+        !if(bd%NO .ne. size(fr%molecule(:))) then
+        !	print*, "number of oxygens in BOXDATA file ", bd%NO, " does not match the number of oxygens in the frame ", size(fr%molecule(:))
+        !	exit
+        !endif
 
-		zcenter = zcenter/bd%NO !searching center of water slab as center of mass of all the oxygens
-		print*, "estimated center of the water slab is at Z = ", zcenter
-		print*, "_______________________________________________________________________________"
-	end if
-	
-    !TODO work with interface files - should be in INSTANTANEOUS_SURFACE module
-    if(allocated(atom_sel)) deallocate(atom_sel)
-    allocate(atom_sel(bd%NO))
-    do i = 1, bd%NO
-        atom_sel(i) = 1+(i-1)*3
-    end do
-
-    error_io_check(instasurf_calculate(atom_sel, E, waterdensity/2.0, bd%interface_pushback), "cannot calculate instasurf")
+        print*, "estimated center of the water slab is at Z = ", zcenter
+        print*, "_______________________________________________________________________________"
+    end if
+    
     !TODO work with interface files - should be in INSTANTANEOUS_SURFACE module
 
-	
+    error_io_check(instasurf_calculate(bd), "cannot calculate instasurf")
+    !TODO work with interface files - should be in INSTANTANEOUS_SURFACE module
+
+    
     !TODO work with density file - should be in DENSITY module
-	!call frame_density_function()
+    !call frame_density_function()
 
 
-	!instead of skipping frames calculate density file with all of them
-	!do k = 1, min(bd%INTERFACE_SKIP-1, bd%NSTEP-step)
-	!	print "(a,a,i,$)", char(13), "STEP: ", step+k
-	!	call fr%read_frame()
-	!	call frame_density_function()
-	!end do
+    !instead of skipping frames calculate density file with all of them
+    !do k = 1, min(bd%INTERFACE_SKIP-1, bd%NSTEP-step)
+    !	print "(a,a,i,$)", char(13), "STEP: ", step+k
+    !	call fr%read_frame()
+    !	call frame_density_function()
+    !end do
 
     !TODO work with density file - should be in DENSITY module
-	
+    
     !TODO work with interface files - should be in INSTANTANEOUS_SURFACE module
 
-	!printing out each step in interface.xyz
-	!if(vmdout) then 
-	!	call vmd_out()
-	!end if
+    !printing out each step in interface.xyz
+    !if(vmdout) then 
+    !	call vmd_out()
+    !end if
     error_io_check(instasurf_write_xyz_frame(), "did not write the frame")
 
-	
-	!if(bd%cancel_interface_calculation == .false.) then
-	!	call bin_out()
-	!end if
-	!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    
+    !if(bd%cancel_interface_calculation == .false.) then
+    !	call bin_out()
+    !end if
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 end do
 

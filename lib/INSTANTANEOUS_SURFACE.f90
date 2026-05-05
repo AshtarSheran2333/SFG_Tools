@@ -2,6 +2,7 @@ module INSTANTANEOUS_SURFACE
     use iso_fortran_env
     use FRAME_READERS, only: fr_frame
     use SFG_UTILS, only: pbc_minimum_image, pi
+    use BOXDATA, only: boxdata_type
     implicit none
     
     type :: instantaneous_surface_structure
@@ -21,20 +22,20 @@ module INSTANTANEOUS_SURFACE
     
 contains
 
-    subroutine instasurf_init(box, volume_element, corner) !TODO work with BOXDATA
+    subroutine instasurf_init(bd)
         implicit none
-        real(real64), dimension(3), intent(in) :: box, volume_element, corner
+        type(boxdata_type), intent(in) :: bd
         
         !wipe
         if(allocated(instasurf)) deallocate(instasurf)
         allocate(instasurf)
         
         !get mesh
-        instasurf%n_points = NINT(box/volume_element)
+        instasurf%n_points = NINT(bd%box_dimensions/bd%interface_volume_element)
 
-        instasurf%volume_element = box/instasurf%n_points
+        instasurf%volume_element = bd%box_dimensions/instasurf%n_points
 
-        instasurf%start = corner - instasurf%volume_element
+        instasurf%start = bd%box_corner - instasurf%volume_element
         
         !allocate containers
         
@@ -55,35 +56,37 @@ contains
         
     end subroutine instasurf_init
 
-    subroutine instasurf_init_flat(box, volume_element, corner, bot, up)
+    subroutine instasurf_init_flat(bd, bot, up)
+        type(boxdata_type), intent(in) :: bd
         real(real64), intent(in) :: bot, up
-        real(real64), dimension(3), intent(in) :: box, volume_element, corner
 
-        call instasurf_init(box, volume_element, corner)
+        call instasurf_init(bd)
 
         instasurf%up_mesh = up
         instasurf%bot_mesh = bot
     end subroutine instasurf_init_flat
 
-    function instasurf_calculate(atom_selection, graining_len, density_threshold, pushback) result(res)
+    function instasurf_calculate(bd) result(res)
         implicit none
         !TODO - ugly implementatation - calling the same block twice
-        integer(int32), dimension(:), intent(IN) :: atom_selection
-        real(real64), intent(IN) :: graining_len, density_threshold
-        integer(int32), intent(IN) :: pushback !TODO BOXDATA
+        type(boxdata_type), intent(in) :: bd
         integer(int32) :: res
-        
+        real(real64) :: density_threshold, tollerance
+
         integer(int32) :: i,j,k,m
         logical :: found_up_interface
         logical :: found_bot_interface
         real(real64), dimension(3) :: pos, prev_pos, diff
         real(real64) :: rho, rhodiff, prev_rhodiff, r
 
+        density_threshold = bd%liquid_bulk_number_density/2.0
+        tollerance = 0.004 !bd%liquid_bulk_number_density * 0.1 - could be like this
+
         res = 0
         
         !$OMP PARALLEL DO &
         !$OMP DEFAULT(NONE) &
-        !$OMP SHARED(instasurf, fr_frame, atom_selection, pushback, graining_len, density_threshold) &
+        !$OMP SHARED(instasurf, fr_frame, bd, density_threshold, tollerance) &
         !$OMP PRIVATE(i, j, k, m, found_up_interface, found_bot_interface, pos, prev_pos, diff, rho, rhodiff, prev_rhodiff, r) &
         !$OMP REDUCTION(+:res)
         do i=1,instasurf%n_points(1)
@@ -97,23 +100,23 @@ contains
                 rhodiff = density_threshold
     
                 !probing from bottom
-                do k=max(1,instasurf%bot_index(i,j)-pushback), instasurf%n_points(3)
+                do k=max(1,instasurf%bot_index(i,j)-bd%interface_pushback), instasurf%n_points(3)
                     prev_pos = pos
-                    pos = instasurf%volume_element * (/i,j,k/) + instasurf%start !TODO volume element from BOXDATA
+                    pos = instasurf%volume_element * (/i,j,k/) + instasurf%start
             
                     !evaluate rho
                     rho = 0
             
-                    do m=1, size(atom_selection)
-                        associate( atom_pos => fr_frame%positions(:,atom_selection(m)) )
+                    do m=1, size(bd%liquid_heavy_atoms)
+                        associate( atom_pos => fr_frame%positions(:,bd%liquid_heavy_atoms(m)) )
                         diff = atom_pos - pos
                         end associate
                         !pbc correction              
-                        diff = pbc_minimum_image(diff, (/60.5710_real64,60.5710_real64,80.0_real64/)) !TODO BOXDATA CORNER!!! 
+                        diff = pbc_minimum_image(diff, bd%box_dimensions, bd%box_corner)
                         r = norm2(diff)
                         !cutoff after 3 sigma, the value would be too small, save some calculation time
-                        if( r <= 3*graining_len ) then
-                            rho = rho + exp(-r**2/(2*graining_len**2))/((2*pi*graining_len**2)**1.5)
+                        if( r <= 3*bd%coarse_graining_length ) then
+                            rho = rho + exp(-r**2/(2*bd%coarse_graining_length**2))/((2*pi*bd%coarse_graining_length**2)**1.5)
                         end if  
                     end do
             
@@ -122,8 +125,8 @@ contains
                     rhodiff = abs(density_threshold - rho)
                     
                     !if the positive derivative is found -> we have found the interface
-                    if(prev_rhodiff < 0.004) then
-                        if(rhodiff > prev_rhodiff) then !TODO 0.004 -> tollerance
+                    if(prev_rhodiff < tollerance) then
+                        if(rhodiff > prev_rhodiff) then
                             found_bot_interface = .true.
                             instasurf%bot_mesh(i,j) = prev_pos(3)
                             instasurf%bot_index(i,j) = k - 1
@@ -136,23 +139,23 @@ contains
                 rhodiff = density_threshold
     
                 !poking rod from top
-                do k=min(instasurf%n_points(3), instasurf%up_index(i,j)+pushback),1,-1
+                do k=min(instasurf%n_points(3), instasurf%up_index(i,j)+bd%interface_pushback),1,-1
                     prev_pos = pos
                     pos = instasurf%volume_element * (/i,j,k/) + instasurf%start
             
                     !evaluate rho
                     rho = 0
             
-                    do m=1, size(atom_selection)
-                        associate( atom_pos => fr_frame%positions(:,atom_selection(m)) )
+                    do m=1, size(bd%liquid_heavy_atoms)
+                        associate( atom_pos => fr_frame%positions(:,bd%liquid_heavy_atoms(m)) )
                         diff = atom_pos - pos
                         end associate
                         !pbc correction              
-                        diff = pbc_minimum_image(diff, (/60.5710_real64,60.5710_real64,80.0_real64/)) !TODO BOXDATA CORNER!!! 
+                        diff = pbc_minimum_image(diff, bd%box_dimensions, bd%box_corner)
                         r = norm2(diff)
                         !cutoff after 3 sigma, the value would be too small, save some calculation time
-                        if( r <= 3*graining_len ) then
-                            rho = rho + exp(-r**2/(2*graining_len**2))/((2*pi*graining_len**2)**1.5)
+                        if( r <= 3*bd%coarse_graining_length ) then
+                            rho = rho + exp(-r**2/(2*bd%coarse_graining_length**2))/((2*pi*bd%coarse_graining_length**2)**1.5)
                         end if  
                     end do
 
@@ -161,8 +164,8 @@ contains
                     rhodiff = abs(density_threshold - rho)
             
                     !if the positive derivative is found -> we have found the interface
-                    if(prev_rhodiff < 0.004) then
-                        if(rhodiff > prev_rhodiff) then !TODO 0.004 -> tollerance
+                    if(prev_rhodiff < tollerance) then
+                        if(rhodiff > prev_rhodiff) then
                         found_up_interface = .true.
                         instasurf%up_mesh(i,j) = prev_pos(3)
                         instasurf%up_index(i,j) = k - 1
@@ -184,15 +187,16 @@ contains
         !TODO - here we potentially can look for the neighbor points and try to interpolate the missing points, but this should not happen
     end function instasurf_calculate
 
-    function instasurf_get_distances(point, box, corner) result(distances) !TODO BOXDATA
+    function instasurf_get_distances(point, bd) result(distances)
         implicit none
-        real(real64), dimension(3), intent(in) :: point, box, corner
+        real(real64), dimension(3), intent(in) :: point
+        type(boxdata_type), intent(in) :: bd
         real(real64), dimension(3) :: diff
         real(real64) :: xgrid, ygrid, xt, yu
         real(real64), dimension(2) :: distances
         integer(int32) :: x, x1, y, y1
         
-        diff = pbc_minimum_image(point, box, corner)
+        diff = pbc_minimum_image(point, bd%box_dimensions, bd%box_corner) !TODO might be problematic
         
         !find where the point belongs on the grid
         !X
