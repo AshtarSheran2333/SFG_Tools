@@ -1,7 +1,7 @@
 module INSTANTANEOUS_SURFACE
     use iso_fortran_env
     use FRAME_READERS, only: fr_frame
-    use SFG_UTILS, only: pbc_minimum_image, pi
+    use SFG_UTILS, only: pbc_minimum_image, pbc_wrap, pi
     use BOXDATA, only: boxdata_type
     implicit none
     
@@ -112,7 +112,7 @@ contains
                         diff = atom_pos - pos
                         end associate
                         !pbc correction              
-                        diff = pbc_minimum_image(diff, bd%box_dimensions, bd%box_corner)
+                        diff = pbc_minimum_image(diff, bd)
                         r = norm2(diff)
                         !cutoff after 3 sigma, the value would be too small, save some calculation time
                         if( r <= 3*bd%coarse_graining_length ) then
@@ -151,7 +151,7 @@ contains
                         diff = atom_pos - pos
                         end associate
                         !pbc correction              
-                        diff = pbc_minimum_image(diff, bd%box_dimensions, bd%box_corner)
+                        diff = pbc_minimum_image(diff, bd)
                         r = norm2(diff)
                         !cutoff after 3 sigma, the value would be too small, save some calculation time
                         if( r <= 3*bd%coarse_graining_length ) then
@@ -191,19 +191,19 @@ contains
         implicit none
         real(real64), dimension(3), intent(in) :: point
         type(boxdata_type), intent(in) :: bd
-        real(real64), dimension(3) :: diff
+        real(real64), dimension(3) :: pos
         real(real64) :: xgrid, ygrid, xt, yu
         real(real64), dimension(2) :: distances
         integer(int32) :: x, x1, y, y1
         
-        diff = pbc_minimum_image(point, bd%box_dimensions, bd%box_corner) !TODO might be problematic
+        pos = pbc_wrap(point, bd)
         
         !find where the point belongs on the grid
         !X
-        x = int((diff(1) - (instasurf%start(1) + instasurf%volume_element(1))) / instasurf%volume_element(1)) + 1
+        x = int((pos(1) - (instasurf%start(1) + instasurf%volume_element(1))) / instasurf%volume_element(1)) + 1
         x1 = x + 1
         !Y
-        y = int((diff(2) - (instasurf%start(2) + instasurf%volume_element(2))) / instasurf%volume_element(2)) + 1
+        y = int((pos(2) - (instasurf%start(2) + instasurf%volume_element(2))) / instasurf%volume_element(2)) + 1
         y1 = y + 1
 
         !deal with the edge cases
@@ -215,8 +215,8 @@ contains
         xgrid = instasurf%start(1) + x*instasurf%volume_element(1)
         ygrid = instasurf%start(2) + y*instasurf%volume_element(2)
         
-        xt = (diff(1)-xgrid)/(instasurf%volume_element(1))
-        yu = (diff(2)-ygrid)/(instasurf%volume_element(2))
+        xt = (pos(1)-xgrid)/(instasurf%volume_element(1))
+        yu = (pos(2)-ygrid)/(instasurf%volume_element(2))
         
         !interface z
         distances(2) = (1-xt)*(1-yu)*instasurf%up_mesh(x,y) &
@@ -229,8 +229,8 @@ contains
                     + (1-xt)*yu*instasurf%bot_mesh(x,y1) &
                     + xt*yu*instasurf%bot_mesh(x1,y1)
         !distance from the interface
-        distances(1) = diff(3) - distances(1)
-        distances(2) = distances(2) - diff(3)
+        distances(1) = pos(3) - distances(1)
+        distances(2) = distances(2) - pos(3)
     end function
 
     function instasurf_write_grid_interface(filename) result(res)

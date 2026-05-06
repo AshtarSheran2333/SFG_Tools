@@ -11,30 +11,32 @@
     
 module SFG_UTILS
     use iso_fortran_env
+    use BOXDATA, only: boxdata_type
     implicit none
 
     real(real64), parameter :: pi = acos(-1.0_real64)
 
     contains
-    
-    function pbc_minimum_image(vector, box, corner) result(image)
+
+    function pbc_minimum_image(diff, bd) result(image)
         implicit none
-        real(real64), dimension(3), intent(in) :: vector, box
-        real(real64), dimension(3), intent(in), optional :: corner
+        real(real64), dimension(3), intent(in) :: diff
+        type(boxdata_type), intent(in) :: bd
         real(real64), dimension(3) :: image
 
-        if(present(corner)) then 
-            !shift to the box frame
-            image = vector - corner
-            !get minimum image
-            image = image - box * ANINT( (image) / box)
-            !shift the image to the correct position
-            image = image + corner
-        else
-            !just get the minimum image
-            image = vector - box * ANINT( (vector) / box)
-        end if
-            
+        image = diff - bd%box_dimensions * NINT( (diff) / bd%box_dimensions )
+
     end function pbc_minimum_image
-    
+
+    function pbc_wrap(vector, bd) result(back_in_the_box_baby)
+        implicit none
+        real(real64), dimension(3), intent(in) :: vector
+        type(boxdata_type), intent(in) :: bd
+        real(real64), dimension(3) :: back_in_the_box_baby
+
+        back_in_the_box_baby = vector - bd%box_corner
+        back_in_the_box_baby = mod(back_in_the_box_baby , bd%box_dimensions) + bd%box_corner
+
+    end function pbc_wrap
+
 end module
