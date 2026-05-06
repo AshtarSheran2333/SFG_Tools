@@ -1,10 +1,10 @@
-program interf
+program SFG_INTERFACE
 
 use iso_fortran_env
 use INTERFACE_UI
 use FRAME_READERS
 use BOXDATA
-USE INSTANTANEOUS_SURFACE
+use INSTANTANEOUS_SURFACE
 
 implicit none
 
@@ -533,4 +533,4 @@ contains
 !end subroutine read_interface_frame
 !TODO should be in the INSTANTANEOUS SURFACE module
 
-end program interf
+end program SFG_INTERFACE
