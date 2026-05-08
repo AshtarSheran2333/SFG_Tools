@@ -6,13 +6,13 @@ module INSTANTANEOUS_SURFACE
     implicit none
     
     type :: instantaneous_surface_structure
-        integer(int32), dimension(3) :: n_points !number of iterations through space
+        integer(int64), dimension(3) :: n_points !number of iterations through space
         real(real64), dimension(3) :: volume_element
         real(real64), dimension(3) :: start !corner of the mesh
         real(real64), dimension(:,:), allocatable :: up_mesh
         real(real64), dimension(:,:), allocatable :: bot_mesh
-        integer(int32), dimension(:,:), allocatable :: up_index !index of iteration to get the point
-        integer(int32), dimension(:,:), allocatable :: bot_index !index of iteration to get the point
+        integer(int64), dimension(:,:), allocatable :: up_index !index of iteration to get the point
+        integer(int64), dimension(:,:), allocatable :: bot_index !index of iteration to get the point
     end type instantaneous_surface_structure
     
     integer, parameter :: INSTASURF_BIN = 1, INSTASURF_XYZ = 2
@@ -73,7 +73,7 @@ contains
         integer(int32) :: res
         real(real64) :: density_threshold, tollerance
 
-        integer(int32) :: i,j,k,m
+        integer(int64) :: i,j,k,m
         logical :: found_up_interface
         logical :: found_bot_interface
         real(real64), dimension(3) :: pos, prev_pos, diff
@@ -100,7 +100,7 @@ contains
                 rhodiff = density_threshold
     
                 !probing from bottom
-                do k=max(1,instasurf%bot_index(i,j)-bd%interface_pushback), instasurf%n_points(3)
+                do k=max(1_int64,instasurf%bot_index(i,j)-bd%interface_pushback), instasurf%n_points(3)
                     prev_pos = pos
                     pos = instasurf%volume_element * (/i,j,k/) + instasurf%start
             
