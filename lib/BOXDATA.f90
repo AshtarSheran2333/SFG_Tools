@@ -28,7 +28,6 @@ module BOXDATA
                         TEMPERATURE = 300,& !K
                         DENSITY_R_START = -5.d0,& !min distance from instasurf A
                         DENSITY_R_END = 80.d0,& !max distance from instasurf A
-                        DENSITY_SMEARING = 0,& !density bin epsilon A
                         LIQUID_BULK_NUMBER_DENSITY = 0.03336,& !expected liquid heavy atom bulk number density -/Angstrom^3
                         COARSE_GRAINING_LENGTH = 2.4 !A
         
@@ -66,7 +65,6 @@ module BOXDATA
         procedure, private :: read_density_r_start
         procedure, private :: read_density_r_end
         procedure, private :: read_density_n_points
-        procedure, private :: read_density_smearing
         procedure, private :: read_liquid_bulk_number_density
         procedure, private :: read_coarse_graining_length
         procedure, private :: read_nstep
@@ -295,20 +293,6 @@ function read_density_n_points(this) result(res)
         res = -1
     end if
 end function read_density_n_points
-
-function read_density_smearing(this) result(res)
-    implicit none
-    class(boxdata_type) :: this
-    integer :: res, ierr
-
-    res = 0
-    
-    read(this%fileUnit,*, iostat = ierr) this%density_smearing
-    if(ierr .ne. 0) then
-        print"(a)", "BOXDATA ERROR: $DENSITY_SMEARING does not contain proper data"
-        res = 0
-    end if
-end function read_density_smearing
 
 function read_liquid_bulk_number_density(this) result(res)
     implicit none
@@ -1330,9 +1314,6 @@ subroutine read_boxdata(this)
             case("$DENSITY_R_END")
                 error_count = error_count + this%read_density_r_end()
 
-            case("$DENSITY_SMEARING")
-                error_count = error_count + this%read_density_smearing()
-
             case("$LIQUID_BULK_NUMBER_DENSITY")
                 error_count = error_count + this%read_liquid_bulk_number_density()
 
@@ -1439,12 +1420,6 @@ subroutine read_boxdata(this)
     if(this%density_r_end <= this%density_r_start) then
         print*, "ERROR: $DIPOLE_R_END is lower or equal to $DIPOLE_R_START"
 !error = .true.
-    end if
-    
-    if(this%density_smearing < 0) then
-        print("(A)"), "WARNING:"
-        print*, "$DENSITY_TOL is negative number - absolute value will be used"
-        this%density_smearing = -this%density_smearing
     end if
     
     if(this%NSTEP <= 0) then
