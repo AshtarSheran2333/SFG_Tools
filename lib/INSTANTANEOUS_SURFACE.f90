@@ -1,6 +1,6 @@
 module INSTANTANEOUS_SURFACE
     use iso_fortran_env
-    use FRAME_READERS, only: fr_frame
+    use FRAME_READERS, only: current_frame_type
     use SFG_UTILS, only: pbc_minimum_image, pbc_wrap, pi
     use BOXDATA, only: boxdata_type
     implicit none
@@ -66,9 +66,10 @@ contains
         instasurf%bot_mesh = bot
     end subroutine instasurf_init_flat
 
-    function instasurf_calculate(bd) result(res)
+    function instasurf_calculate(frame, bd) result(res)
         implicit none
         !TODO - ugly implementatation - calling the same block twice
+        type(current_frame_type), intent(in) :: frame
         type(boxdata_type), intent(in) :: bd
         integer(int32) :: res
         real(real64) :: density_threshold, tollerance
@@ -86,7 +87,7 @@ contains
         
         !$OMP PARALLEL DO &
         !$OMP DEFAULT(NONE) &
-        !$OMP SHARED(instasurf, fr_frame, bd, density_threshold, tollerance) &
+        !$OMP SHARED(instasurf, frame, bd, density_threshold, tollerance) &
         !$OMP PRIVATE(i, j, k, m, found_up_interface, found_bot_interface, pos, prev_pos, diff, rho, rhodiff, prev_rhodiff, r) &
         !$OMP REDUCTION(+:res)
         do i=1,instasurf%n_points(1)
@@ -108,7 +109,7 @@ contains
                     rho = 0
             
                     do m=1, size(bd%liquid_heavy_atoms)
-                        associate( atom_pos => fr_frame%positions(:,bd%liquid_heavy_atoms(m)) )
+                        associate( atom_pos => frame%positions(:,bd%liquid_heavy_atoms(m)) )
                         diff = atom_pos - pos
                         end associate
                         !pbc correction              
@@ -147,7 +148,7 @@ contains
                     rho = 0
             
                     do m=1, size(bd%liquid_heavy_atoms)
-                        associate( atom_pos => fr_frame%positions(:,bd%liquid_heavy_atoms(m)) )
+                        associate( atom_pos => frame%positions(:,bd%liquid_heavy_atoms(m)) )
                         diff = atom_pos - pos
                         end associate
                         !pbc correction              

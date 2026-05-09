@@ -2,7 +2,10 @@ module FRAME_READERS
     use, intrinsic :: iso_fortran_env, only: real64, int64, int32, real32
     implicit none
 
-    type :: fr_current_frame
+    real(real64), parameter ::                              nmpps_to_hartree = 21.876912635 !nm/ps -> a_0*E_h/(reduced planck)
+    real(real64), parameter ::                              nm_to_angstrom = 10
+
+    type :: current_frame_type
         real(real64), dimension(:,:), allocatable ::        positions
         real(real64), dimension(:,:), allocatable ::        velocities
         character(len=5), dimension(:), allocatable ::      names
@@ -10,18 +13,22 @@ module FRAME_READERS
         integer(int64) ::                                   frame_number = 0
         integer(int64) ::                                   n_atoms = 0
         logical ::                                          has_velocities = .false.
-    end type fr_current_frame
+    end type current_frame_type
     
     type, abstract :: frame_reader
         
-        
+        !todo exposing current frame as public, do not touch it from outside
+        type(current_frame_type), public ::                   frame
+        integer, private ::                                 file = 0, file1 = 0
+        integer(int64), private ::                          prev_n_atoms = 0                                       
+    
     contains
-        procedure(open_), deferred ::                       open_file
-        procedure(read_), deferred ::                       read_frame
-        procedure(skip_), deferred ::                       skip_frame
-        procedure(rewind_), deferred ::                     rewind_file
-        procedure(close_), deferred ::                      close_file
-        procedure(is_open_), deferred ::                    is_open 
+        procedure(open_), deferred, public ::                       open_file
+        procedure(read_), deferred, public ::                       read_frame
+        procedure(skip_), deferred, public ::                       skip_frame
+        procedure(rewind_), deferred, public ::                     rewind_file
+        procedure(close_), deferred, public ::                      close_file
+        procedure(is_open_), deferred, public ::                    is_open 
         
     end type frame_reader
     
@@ -61,14 +68,6 @@ module FRAME_READERS
         
     end interface
     
-    real(real64), parameter ::                              nmpps_to_hartree = 21.876912635 !nm/ps -> a_0*E_h/(reduced planck)
-    real(real64), parameter ::                              nm_to_angstrom = 10
-
-    type(fr_current_frame), protected ::                    fr_frame
-
-    integer, private ::                                     fr_file = 0, fr_file1 = 0
-    integer(int64), private ::                              prev_n_atoms = 0                                       
-    
     !TRR FRAME READER
     
     type trr_frame_header_sizes
@@ -100,12 +99,25 @@ module FRAME_READERS
         
     contains
     
-        procedure ::                                        open_file => trr_open_file
-        procedure ::                                        read_frame => trr_read_frame
-        procedure ::                                        skip_frame => trr_skip_frame
-        procedure ::                                        rewind_file => trr_rewind_file
-        procedure ::                                        close_file => trr_close_file
-        procedure ::                                        is_open => trr_is_open
+        procedure, public :: open_file => trr_open_file
+        procedure, public :: read_frame => trr_read_frame
+        procedure, public :: skip_frame => trr_skip_frame
+        procedure, public :: rewind_file => trr_rewind_file
+        procedure, public :: close_file => trr_close_file
+        procedure, public :: is_open => trr_is_open
+
+        procedure, private :: read_header => trr_read_header
+        procedure, private :: read_ir => trr_read_ir
+        procedure, private :: read_e => trr_read_e
+        procedure, private :: read_box => trr_read_box
+        procedure, private :: read_vir => trr_read_vir
+        procedure, private :: read_pres => trr_read_pres
+        procedure, private :: read_top => trr_read_top
+        procedure, private :: read_sym => trr_read_sym
+        procedure, private :: read_positions => trr_read_positions
+        procedure, private :: read_velocities => trr_read_velocities
+        procedure, private :: read_forces => trr_read_forces
+        procedure, private :: fill_atom_names => trr_fill_atom_names
         
     end type trr_frame_reader
 
@@ -154,7 +166,92 @@ module FRAME_READERS
 
             logical ::                                      res
         end function trr_is_open
-    
+
+        module function trr_read_header(this) result(res)
+            import :: trr_frame_reader
+            class(trr_frame_reader), intent(inout) ::       this
+
+            logical ::                                      res
+        end function trr_read_header
+
+        module function trr_read_ir(this) result(res)
+            import :: trr_frame_reader
+            class(trr_frame_reader), intent(inout) ::       this
+
+            logical ::                                      res
+        end function trr_read_ir
+
+        module function trr_read_e(this) result(res)
+            import :: trr_frame_reader
+            class(trr_frame_reader), intent(inout) ::       this
+
+            logical ::                                      res
+        end function trr_read_e
+
+        module function trr_read_box(this) result(res)
+            import :: trr_frame_reader
+            class(trr_frame_reader), intent(inout) ::       this
+
+            logical ::                                      res
+        end function trr_read_box
+
+        module function trr_read_vir(this) result(res)
+            import :: trr_frame_reader
+            class(trr_frame_reader), intent(inout) ::       this
+
+            logical ::                                      res
+        end function trr_read_vir
+
+        module function trr_read_pres(this) result(res)
+            import :: trr_frame_reader
+            class(trr_frame_reader), intent(inout) ::       this
+
+            logical ::                                      res
+        end function trr_read_pres
+
+        module function trr_read_top(this) result(res)
+            import :: trr_frame_reader
+            class(trr_frame_reader), intent(inout) ::       this
+
+            logical ::                                      res
+        end function trr_read_top
+
+        module function trr_read_sym(this) result(res)
+            import :: trr_frame_reader
+            class(trr_frame_reader), intent(inout) ::       this
+
+            logical ::                                      res
+        end function trr_read_sym
+
+        module function trr_read_positions(this) result(res)
+            import :: trr_frame_reader
+            class(trr_frame_reader), intent(inout) ::       this
+
+            logical ::                                      res
+        end function trr_read_positions
+
+        module function trr_read_velocities(this) result(res)
+            import :: trr_frame_reader
+            class(trr_frame_reader), intent(inout) ::       this
+
+            logical ::                                      res
+        end function trr_read_velocities
+
+        module function trr_read_forces(this) result(res)
+            import :: trr_frame_reader
+            class(trr_frame_reader), intent(inout) ::       this
+
+            logical ::                                      res
+        end function trr_read_forces
+
+        module function trr_fill_atom_names(this, filename) result(res)
+            import :: trr_frame_reader
+            class(trr_frame_reader), intent(inout) ::       this
+            character(*) :: filename
+
+            logical ::                                      res
+        end function trr_fill_atom_names
+
     end interface
     
 
@@ -165,13 +262,15 @@ module FRAME_READERS
         
     contains
     
-        procedure ::                                        open_file => gro_open_file
-        procedure ::                                        read_frame => gro_read_frame
-        procedure ::                                        skip_frame => gro_skip_frame
-        procedure ::                                        rewind_file => gro_rewind_file
-        procedure ::                                        close_file => gro_close_file
-        procedure ::                                        is_open => gro_is_open
+        procedure, public :: open_file => gro_open_file
+        procedure, public :: read_frame => gro_read_frame
+        procedure, public :: skip_frame => gro_skip_frame
+        procedure, public :: rewind_file => gro_rewind_file
+        procedure, public :: close_file => gro_close_file
+        procedure, public :: is_open => gro_is_open
         
+        procedure, private :: read_header => gro_read_header
+
     end type gro_frame_reader
 
     interface
@@ -219,7 +318,14 @@ module FRAME_READERS
 
             logical ::                                      res
         end function gro_is_open
-    
+
+        module function gro_read_header(this) result(res)
+            import :: gro_frame_reader
+            class(gro_frame_reader), intent(inout) ::       this
+
+            logical ::                                      res
+        end function gro_read_header
+
     end interface
     
 
@@ -230,13 +336,18 @@ module FRAME_READERS
         
     contains
     
-        procedure ::                                        open_file => xyz_open_file
-        procedure ::                                        read_frame => xyz_read_frame
-        procedure ::                                        skip_frame => xyz_skip_frame
-        procedure ::                                        rewind_file => xyz_rewind_file
-        procedure ::                                        close_file => xyz_close_file
-        procedure ::                                        is_open => xyz_is_open
+        procedure, public :: open_file => xyz_open_file
+        procedure, public :: read_frame => xyz_read_frame
+        procedure, public :: skip_frame => xyz_skip_frame
+        procedure, public :: rewind_file => xyz_rewind_file
+        procedure, public :: close_file => xyz_close_file
+        procedure, public :: is_open => xyz_is_open
         
+        procedure, private :: read_header_with_velocities => xyz_read_header_with_velocities 
+        procedure, private :: read_header_no_velocities => xyz_read_header_no_velocities
+        procedure, private :: open_with_velocities => xyz_open_with_velocities
+        procedure, private :: open_no_velocities => xyz_open_no_velocities
+
     end type xyz_frame_reader
 
     interface
@@ -284,6 +395,36 @@ module FRAME_READERS
             logical ::                                      res
         end function xyz_is_open
     
+        module function xyz_read_header_with_velocities(this) result(res)
+            import :: xyz_frame_reader
+            class(xyz_frame_reader), intent(inout) ::       this
+
+            logical ::                                      res
+        end function xyz_read_header_with_velocities
+
+        module function xyz_read_header_no_velocities(this) result(res)
+            import :: xyz_frame_reader
+            class(xyz_frame_reader), intent(inout) ::       this
+
+            logical ::                                      res
+        end function xyz_read_header_no_velocities
+
+        module function xyz_open_with_velocities(this, posfile, velfile) result(res)
+            import :: xyz_frame_reader
+            class(xyz_frame_reader), intent(inout) ::       this
+            character(*), intent(in) :: posfile, velfile
+
+            integer ::                                      res
+        end function xyz_open_with_velocities
+
+        module function xyz_open_no_velocities(this, posfile) result(res)
+            import :: xyz_frame_reader
+            class(xyz_frame_reader), intent(inout) ::       this
+            character(*), intent(in) :: posfile
+
+            integer ::                                      res
+        end function xyz_open_no_velocities
+
     end interface
     
 end module FRAME_READERS

@@ -9,26 +9,25 @@ submodule (FRAME_READERS) GRO_READER
 
     contains
     
-    function read_header() result(res)
+    module procedure gro_read_header
         implicit none
-        logical :: res
         logical :: is_open
         integer :: ierr
         
         res = .false.
 
-        inquire(fr_file, opened = is_open)
+        inquire(this%file, opened = is_open)
 
         if(.not. is_open) return
         
-        read(fr_file, "(A)", iostat = ierr) !comment line
+        read(this%file, "(A)", iostat = ierr) !comment line
         if(ierr .ne. 0) return
 
-        read(fr_file, *, iostat = ierr) fr_frame%n_atoms !number of atoms
+        read(this%file, *, iostat = ierr) this%frame%n_atoms !number of atoms
         if(ierr .ne. 0) return
 
         res = .true.
-    end function read_header
+    end procedure gro_read_header
 
     module procedure gro_open_file
         implicit none
@@ -42,52 +41,52 @@ submodule (FRAME_READERS) GRO_READER
 
         if(present(filename1)) error_stop("Calling gro reader with two arguments is not allowed")
         
-        if(allocated(fr_frame%positions)) then
-            deallocate(fr_frame%positions)
+        if(allocated(this%frame%positions)) then
+            deallocate(this%frame%positions)
         end if
-        if(allocated(fr_frame%velocities)) then
-            deallocate(fr_frame%velocities)
+        if(allocated(this%frame%velocities)) then
+            deallocate(this%frame%velocities)
         end if
-        if(allocated(fr_frame%names)) then
-            deallocate(fr_frame%names)
+        if(allocated(this%frame%names)) then
+            deallocate(this%frame%names)
         end if
         
-        fr_frame%frame_number = 0
-        fr_frame%n_atoms = 0
-        fr_frame%has_velocities = .false.
+        this%frame%frame_number = 0
+        this%frame%n_atoms = 0
+        this%frame%has_velocities = .false.
         
-        inquire(fr_file, opened = is_open)
+        inquire(this%file, opened = is_open)
         if(is_open) then
-            close(fr_file)
+            close(this%file)
         end if
         
         write(output_unit,'( "Opening ", A, " file...")') trim(filename)
 
-        open(newunit = fr_file, file = filename, status = 'old', iostat = ierr)
+        open(newunit = this%file, file = filename, status = 'old', iostat = ierr)
         if(ierr .ne. 0) then
             res = ierr
             return
         end if
         
-        if(.not. read_header()) return
+        if(.not. this%read_header()) return
         
-        prev_n_atoms = fr_frame%n_atoms
+        this%prev_n_atoms = this%frame%n_atoms
 
-        allocate(fr_frame%positions(3,fr_frame%n_atoms), stat = ierr) !allocate space for atoms
+        allocate(this%frame%positions(3,this%frame%n_atoms), stat = ierr) !allocate space for atoms
         if(ierr .ne. 0) return
-        allocate(fr_frame%velocities(3,fr_frame%n_atoms), stat = ierr) !allocate space for atoms
+        allocate(this%frame%velocities(3,this%frame%n_atoms), stat = ierr) !allocate space for atoms
         if(ierr .ne. 0) return
-        allocate(fr_frame%names(fr_frame%n_atoms), stat = ierr) !allocate space for atoms
+        allocate(this%frame%names(this%frame%n_atoms), stat = ierr) !allocate space for atoms
         if(ierr .ne. 0) return
 
         !attempt to read velocities
-        fr_frame%has_velocities = .true.
-        read(fr_file, gro_format, iostat = ierr) &
+        this%frame%has_velocities = .true.
+        read(this%file, gro_format, iostat = ierr) &
             res_index, res_name, atom_name, atom_index, dummy, dummy
         if(ierr .ne. 0) then
-            fr_frame%has_velocities = .false.
+            this%frame%has_velocities = .false.
             !attempt to read without velocities
-            read(fr_file, gro_format, iostat = ierr) &
+            read(this%file, gro_format, iostat = ierr) &
                 res_index, res_name, atom_name, atom_index, dummy
             if(ierr .ne. 0) then
                 !problem
@@ -96,7 +95,7 @@ submodule (FRAME_READERS) GRO_READER
             end if
         end if
         
-        rewind(fr_file, iostat = ierr) !rewind
+        rewind(this%file, iostat = ierr) !rewind
         if(ierr .ne. 0) return
 
         res = 0
@@ -112,25 +111,25 @@ submodule (FRAME_READERS) GRO_READER
         logical :: is_open
         
         res = -1
-        inquire(fr_file, opened = is_open)
+        inquire(this%file, opened = is_open)
         if(.not. is_open) return
 
-        res = -2; if(.not. read_header()) return
+        res = -2; if(.not. this%read_header()) return
         
-        !check wheather the number of atoms changed, if yes, reallocate fr_atoms
-        if(fr_frame%n_atoms .ne. prev_n_atoms) then
+        !check wheather the number of atoms changed, if yes, reallocate this%atoms
+        if(this%frame%n_atoms .ne. this%prev_n_atoms) then
             error_stop("gro reader does not support variable number of atoms") 
             !here one can implement variable number of atoms, but I dont want this functionality
         end if
         
-        if(fr_frame%has_velocities) then
-            read(fr_file, gro_format, iostat = ierr) &
-                (res_index, res_name, fr_frame%names(i), atom_index, fr_frame%positions(:,i), fr_frame%velocities(:,i), &
-                i = 1, fr_frame%n_atoms)
+        if(this%frame%has_velocities) then
+            read(this%file, gro_format, iostat = ierr) &
+                (res_index, res_name, this%frame%names(i), atom_index, this%frame%positions(:,i), this%frame%velocities(:,i), &
+                i = 1, this%frame%n_atoms)
         else
-            read(fr_file, gro_format, iostat = ierr) &
-                (res_index, res_name, fr_frame%names(i), atom_index, fr_frame%positions(:,i), &
-                i = 1, fr_frame%n_atoms)
+            read(this%file, gro_format, iostat = ierr) &
+                (res_index, res_name, this%frame%names(i), atom_index, this%frame%positions(:,i), &
+                i = 1, this%frame%n_atoms)
         end if
         if(ierr .ne. 0) then
             res = ierr
@@ -138,15 +137,15 @@ submodule (FRAME_READERS) GRO_READER
         end if
             
         !convert the positions
-        fr_frame%positions = fr_frame%positions * nm_to_angstrom
+        this%frame%positions = this%frame%positions * nm_to_angstrom
         !convert the velocities
-        if(fr_frame%has_velocities) fr_frame%velocities = fr_frame%velocities * nmpps_to_hartree
+        if(this%frame%has_velocities) this%frame%velocities = this%frame%velocities * nmpps_to_hartree
 
         !read the box size - just discard it
-        read(fr_file, *, iostat = ierr) box
+        read(this%file, *, iostat = ierr) box
         res = -3; if(ierr .ne. 0) return
         
-        fr_frame%frame_number = fr_frame%frame_number + 1
+        this%frame%frame_number = this%frame%frame_number + 1
         res = 0;
     end procedure gro_read_frame
 
@@ -158,19 +157,19 @@ submodule (FRAME_READERS) GRO_READER
         integer(int64) :: i
 
         res = -1
-        inquire(fr_file, opened = is_open)
+        inquire(this%file, opened = is_open)
         if(.not. is_open) return
 
-        res = -2; if(.not. read_header()) return
+        res = -2; if(.not. this%read_header()) return
         
-        read(fr_file, "(A)", iostat = ierr) &
-            (dummy , i = 1, fr_frame%n_atoms+1) !empty read +1 for the box
+        read(this%file, "(A)", iostat = ierr) &
+            (dummy , i = 1, this%frame%n_atoms+1) !empty read +1 for the box
         if(ierr .ne. 0) then
             res = ierr
             return
         end if
 
-        fr_frame%frame_number = fr_frame%frame_number + 1
+        this%frame%frame_number = this%frame%frame_number + 1
         res = 0;
     end procedure gro_skip_frame
 
@@ -179,16 +178,16 @@ submodule (FRAME_READERS) GRO_READER
         logical :: is_open
         integer :: ierr
         
-        inquire(fr_file, opened = is_open)
+        inquire(this%file, opened = is_open)
         res = -1; if(.not. is_open) return
 
-        rewind(fr_file, iostat = ierr)
+        rewind(this%file, iostat = ierr)
         if(ierr .ne. 0) then
             res = ierr
             return
         end if
         
-        fr_frame%frame_number = 0
+        this%frame%frame_number = 0
         res = 0
     end procedure gro_rewind_file
 
@@ -196,27 +195,27 @@ submodule (FRAME_READERS) GRO_READER
         implicit none
         logical :: is_open
         
-        inquire(fr_file, opened = is_open)
+        inquire(this%file, opened = is_open)
         res = -1; if(.not. is_open) return
         
-        close(fr_file, iostat = res)
+        close(this%file, iostat = res)
         if(res .ne. 0) return
 
-        fr_file = 0
+        this%file = 0
 
-        if(allocated(fr_frame%positions)) deallocate(fr_frame%positions)
-        if(allocated(fr_frame%velocities)) deallocate(fr_frame%velocities)
-        if(allocated(fr_frame%names)) deallocate(fr_frame%names)
+        if(allocated(this%frame%positions)) deallocate(this%frame%positions)
+        if(allocated(this%frame%velocities)) deallocate(this%frame%velocities)
+        if(allocated(this%frame%names)) deallocate(this%frame%names)
         
-        fr_frame%n_atoms = 0
-        fr_frame%frame_number = 0
-        fr_frame%has_velocities = .false.
+        this%frame%n_atoms = 0
+        this%frame%frame_number = 0
+        this%frame%has_velocities = .false.
         res = 0
     end procedure gro_close_file
 
     module procedure gro_is_open
         implicit none
-        inquire(fr_file, opened = res)
+        inquire(this%file, opened = res)
     end procedure gro_is_open
 
 end submodule GRO_READER

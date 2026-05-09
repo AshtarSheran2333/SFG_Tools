@@ -7,10 +7,8 @@ submodule (FRAME_READERS) TRR_READER
     
     contains
     
-    function read_header(reader) result(res)
+    module procedure trr_read_header
         implicit none
-        type(trr_frame_reader), intent(inout) :: reader
-        logical :: res
         integer(int32) :: skip = 0
         character(:), allocatable :: cw
         logical :: is_open
@@ -18,12 +16,12 @@ submodule (FRAME_READERS) TRR_READER
         
         res = .false.
 
-        inquire(fr_file, opened = is_open)
+        inquire(this%file, opened = is_open)
 
         if(.not. is_open) return
         
         !magic number
-        read(fr_file, iostat = ierr) skip !1993
+        read(this%file, iostat = ierr) skip !1993
         if(ierr .ne. 0) return
 
         if(skip /= 1993) then
@@ -31,15 +29,15 @@ submodule (FRAME_READERS) TRR_READER
             return
         end if
 
-        read(fr_file, iostat = ierr) skip !max str len
+        read(this%file, iostat = ierr) skip !max str len
         if(ierr .ne. 0) return
 
-        read(fr_file, iostat = ierr) skip !actual str len
+        read(this%file, iostat = ierr) skip !actual str len
         if(ierr .ne. 0) return
 
         allocate(character(len=skip) :: cw)
         
-        read(fr_file, iostat = ierr) cw !"GMX_trn_file"
+        read(this%file, iostat = ierr) cw !"GMX_trn_file"
         if(ierr .ne. 0) return
 
         if(cw .ne. "GMX_trn_file") then
@@ -50,8 +48,8 @@ submodule (FRAME_READERS) TRR_READER
         deallocate(cw)
         
         !àead the whole header in one go
-        associate(h => reader%header)
-        read(fr_file, iostat = ierr) &
+        associate(h => this%header)
+        read(this%file, iostat = ierr) &
             h%sizes%ir_size,    &
             h%sizes%e_size,     &
             h%sizes%box_size,   &
@@ -71,180 +69,164 @@ submodule (FRAME_READERS) TRR_READER
         if(ierr .ne. 0) return
 
         res = .true.
-    end function
+    end procedure trr_read_header
     
-    function read_ir(reader) result(res) !not implemented - just skipping the data
+    module procedure trr_read_ir !not implemented - just skipping the data
         implicit none
-        class(trr_frame_reader) :: reader
-        logical :: res
         integer :: ierr
         integer(int64) :: position
         logical :: is_open
         
         res = .false.
         
-        if(reader%header%sizes%ir_size .eq. 0) then 
+        if(this%header%sizes%ir_size .eq. 0) then 
             res = .true.
             return !nothing to read
         end if
 
-        inquire(fr_file, pos = position, opened = is_open)
+        inquire(this%file, pos = position, opened = is_open)
         if(.not. is_open) return
         
-        read(fr_file, pos = position + reader%header%sizes%ir_size, iostat = ierr) !just skip 
+        read(this%file, pos = position + this%header%sizes%ir_size, iostat = ierr) !just skip 
         if(ierr .ne. 0) return !something went wrong
         
         res = .true.
-    end function read_ir
+    end procedure trr_read_ir
 
-    function read_e(reader) result(res) !not implemented - just skipping the data
+    module procedure trr_read_e !not implemented - just skipping the data
         implicit none
-        class(trr_frame_reader) :: reader
-        logical :: res
         integer :: ierr
         integer(int64) :: position
         logical :: is_open
         
         res = .false.
         
-        if(reader%header%sizes%e_size .eq. 0) then 
+        if(this%header%sizes%e_size .eq. 0) then 
             res = .true.
             return !nothing to read
         end if
         
-        inquire(fr_file, pos = position, opened = is_open)
+        inquire(this%file, pos = position, opened = is_open)
         if(.not. is_open) return
         
-        read(fr_file, pos = position + reader%header%sizes%e_size, iostat = ierr) !just skip 
+        read(this%file, pos = position + this%header%sizes%e_size, iostat = ierr) !just skip 
         if(ierr .ne. 0) return !something went wrong
         
         res = .true.
-    end function read_e
+    end procedure trr_read_e
 
-    function read_box(reader) result(res) !not implemented - just skipping the data
+    module procedure trr_read_box !not implemented - just skipping the data
         implicit none
-        class(trr_frame_reader) :: reader
-        logical :: res
         integer :: ierr
         integer(int64) :: position
         logical :: is_open
         
         res = .false.
         
-        if(reader%header%sizes%box_size .eq. 0) then
+        if(this%header%sizes%box_size .eq. 0) then
             res = .true.
             return !nothing to read
         end if 
     
-        inquire(fr_file, pos = position, opened = is_open)
+        inquire(this%file, pos = position, opened = is_open)
         if(.not. is_open) return
         
-        read(fr_file, pos = position + reader%header%sizes%box_size, iostat = ierr) !just skip 
+        read(this%file, pos = position + this%header%sizes%box_size, iostat = ierr) !just skip 
         if(ierr .ne. 0) return !something went wrong
 
         res = .true.
-    end function read_box
+    end procedure trr_read_box
 
-    function read_vir(reader) result(res) !not implemented - just skipping the data
+    module procedure trr_read_vir !not implemented - just skipping the data
         implicit none
-        class(trr_frame_reader) :: reader
-        logical :: res
         integer :: ierr
         integer(int64) :: position
         logical :: is_open
         
         res = .false.
         
-        if(reader%header%sizes%vir_size .eq. 0) then
+        if(this%header%sizes%vir_size .eq. 0) then
             res = .true.
             return !nothing to read
         end if 
     
-        inquire(fr_file, pos = position, opened = is_open)
+        inquire(this%file, pos = position, opened = is_open)
         if(.not. is_open) return
         
-        read(fr_file, pos = position + reader%header%sizes%vir_size, iostat = ierr) !just skip 
+        read(this%file, pos = position + this%header%sizes%vir_size, iostat = ierr) !just skip 
         if(ierr .ne. 0) return !something went wrong
 
         res = .true.
-    end function read_vir
+    end procedure trr_read_vir
 
-    function read_pres(reader) result(res) !not implemented - just skipping the data
+    module procedure trr_read_pres !not implemented - just skipping the data
         implicit none
-        class(trr_frame_reader) :: reader
-        logical :: res
         integer :: ierr
         integer(int64) :: position
         logical :: is_open
         
         res = .false.
         
-        if(reader%header%sizes%pres_size .eq. 0) then
+        if(this%header%sizes%pres_size .eq. 0) then
             res = .true.
             return !nothing to read
         end if 
     
-        inquire(fr_file, pos = position, opened = is_open)
+        inquire(this%file, pos = position, opened = is_open)
         if(.not. is_open) return
         
-        read(fr_file, pos = position + reader%header%sizes%pres_size, iostat = ierr) !just skip 
+        read(this%file, pos = position + this%header%sizes%pres_size, iostat = ierr) !just skip 
         if(ierr .ne. 0) return !something went wrong
 
         res = .true.
-    end function read_pres
+    end procedure trr_read_pres
 
-    function read_top(reader) result(res) !not implemented - just skipping the data
+    module procedure trr_read_top !not implemented - just skipping the data
         implicit none
-        class(trr_frame_reader) :: reader
-        logical :: res
         integer :: ierr
         integer(int64) :: position
         logical :: is_open
         
         res = .false.
         
-        if(reader%header%sizes%top_size .eq. 0) then
+        if(this%header%sizes%top_size .eq. 0) then
             res = .true.
             return !nothing to read
         end if 
     
-        inquire(fr_file, pos = position, opened = is_open)
+        inquire(this%file, pos = position, opened = is_open)
         if(.not. is_open) return
         
-        read(fr_file, pos = position + reader%header%sizes%top_size, iostat = ierr) !just skip 
+        read(this%file, pos = position + this%header%sizes%top_size, iostat = ierr) !just skip 
         if(ierr .ne. 0) return !something went wrong
 
         res = .true.
-    end function read_top
+    end procedure trr_read_top
     
-    function read_sym(reader) result(res) !not implemented - just skipping the data
+    module procedure trr_read_sym !not implemented - just skipping the data
         implicit none
-        class(trr_frame_reader) :: reader
-        logical :: res
         integer :: ierr
         integer(int64) :: position
         logical :: is_open
         
         res = .false.
         
-        if(reader%header%sizes%sym_size .eq. 0) then
+        if(this%header%sizes%sym_size .eq. 0) then
             res = .true.
             return !nothing to read
         end if 
     
-        inquire(fr_file, pos = position, opened = is_open)
+        inquire(this%file, pos = position, opened = is_open)
         if(.not. is_open) return
         
-        read(fr_file, pos = position + reader%header%sizes%sym_size, iostat = ierr) !just skip 
+        read(this%file, pos = position + this%header%sizes%sym_size, iostat = ierr) !just skip 
         if(ierr .ne. 0) return !something went wrong
 
         res = .true.
-    end function read_sym
+    end procedure trr_read_sym
     
-    function read_positions(reader) result(res)
+    module procedure trr_read_positions
         implicit none
-        class(trr_frame_reader) :: reader
-        logical :: res
         integer :: ierr
         real(real32), dimension(3) :: read_sp
         integer(int32) :: element_sz
@@ -253,19 +235,19 @@ submodule (FRAME_READERS) TRR_READER
         
         res = .false.
         
-        if(reader%header%sizes%pos_size .eq. 0) then
+        if(this%header%sizes%pos_size .eq. 0) then
             return !nothing to read
         end if
 
-        inquire(fr_file, opened = is_open)
+        inquire(this%file, opened = is_open)
         if(.not. is_open) return
         
-        element_sz = reader%header%sizes%pos_size / (3 * reader%header%n_atoms)
+        element_sz = this%header%sizes%pos_size / (3 * this%header%n_atoms)
         
-        if( (element_sz * 3 * reader%header%n_atoms) .ne. reader%header%sizes%pos_size ) &
+        if( (element_sz * 3 * this%header%n_atoms) .ne. this%header%sizes%pos_size ) &
             error_stop("position size is not congruent with the number of atoms")
         
-        if( reader%header%n_atoms .ne. size(fr_frame%positions,2) ) &
+        if( this%header%n_atoms .ne. size(this%frame%positions,2) ) &
             error_stop("trr reader internal arrays size does not match the trr header n_atoms")
             
         if( (element_sz .ne. 4) .and. (element_sz .ne. 8) ) &
@@ -273,28 +255,26 @@ submodule (FRAME_READERS) TRR_READER
         
         if(element_sz .eq. 8) then
             !read double precision
-            read(fr_file, iostat = ierr) (fr_frame%positions(:,i), i = 1, reader%header%n_atoms) 
+            read(this%file, iostat = ierr) (this%frame%positions(:,i), i = 1, this%header%n_atoms) 
         else
             !read single precision, store in double precision
-            do i = 1, reader%header%n_atoms
-                  read(fr_file, iostat = ierr) read_sp
+            do i = 1, this%header%n_atoms
+                  read(this%file, iostat = ierr) read_sp
                   if(ierr .ne. 0) exit
-                  fr_frame%positions(:,i) = read_sp
+                  this%frame%positions(:,i) = read_sp
             end do
         end if
 
         if(ierr .ne. 0) return !something went wrong
 
         !convert the positions
-        fr_frame%positions = fr_frame%positions * nm_to_angstrom
+        this%frame%positions = this%frame%positions * nm_to_angstrom
         
         res = .true.
-    end function read_positions
+    end procedure trr_read_positions
     
-    function read_velocities(reader) result(res)
+    module procedure trr_read_velocities
         implicit none
-        class(trr_frame_reader) :: reader
-        logical :: res
         integer :: ierr
         real(real32), dimension(3) :: read_sp
         integer(int32) :: element_sz
@@ -303,19 +283,19 @@ submodule (FRAME_READERS) TRR_READER
         
         res = .false.
         
-        if(reader%header%sizes%vel_size .eq. 0) then
-            if(fr_frame%has_velocities) return !error, config changed
+        if(this%header%sizes%vel_size .eq. 0) then
+            if(this%frame%has_velocities) return !error, config changed
         end if
 
-        inquire(fr_file, opened = is_open)
+        inquire(this%file, opened = is_open)
         if(.not. is_open) return
         
-        element_sz = reader%header%sizes%vel_size / (3 * reader%header%n_atoms)
+        element_sz = this%header%sizes%vel_size / (3 * this%header%n_atoms)
         
-        if( (element_sz * 3 * reader%header%n_atoms) .ne. reader%header%sizes%vel_size ) &
+        if( (element_sz * 3 * this%header%n_atoms) .ne. this%header%sizes%vel_size ) &
             error_stop("trr velocity size is not congruent with the number of atoms")
         
-        if( reader%header%n_atoms .ne. size(fr_frame%velocities,2) ) &
+        if( this%header%n_atoms .ne. size(this%frame%velocities,2) ) &
             error_stop("trr reader internal n_atoms does not match the trr header n_atoms")
         
         if( (element_sz .ne. 4) .and. (element_sz .ne. 8) ) &
@@ -323,54 +303,50 @@ submodule (FRAME_READERS) TRR_READER
         
         if(element_sz .eq. 8) then
             !read double precision
-            read(fr_file, iostat = ierr) (fr_frame%velocities(:,i), i = 1, reader%header%n_atoms) 
+            read(this%file, iostat = ierr) (this%frame%velocities(:,i), i = 1, this%header%n_atoms) 
         else
             !read single precision, store in double precision
-            do i = 1, reader%header%n_atoms
-                  read(fr_file, iostat = ierr) read_sp
+            do i = 1, this%header%n_atoms
+                  read(this%file, iostat = ierr) read_sp
                   if(ierr .ne. 0) exit
-                  fr_frame%velocities(:,i) = read_sp
+                  this%frame%velocities(:,i) = read_sp
             end do
         end if
 
         if(ierr .ne. 0) return !something went wrong
 
         !convert the velocities
-        fr_frame%velocities = fr_frame%velocities * nmpps_to_hartree
+        this%frame%velocities = this%frame%velocities * nmpps_to_hartree
 
-        fr_frame%has_velocities = .true.
+        this%frame%has_velocities = .true.
         res = .true.
-    end function read_velocities
+    end procedure trr_read_velocities
 
-    function read_forces(reader) result(res) !not implemented - just skipping the data
+    module procedure trr_read_forces !not implemented - just skipping the data
         implicit none
-        class(trr_frame_reader) :: reader
-        logical :: res
         integer :: ierr
         integer(int64) :: position
         logical :: is_open
         
         res = .false.
         
-        if(reader%header%sizes%forces_size .eq. 0) then
+        if(this%header%sizes%forces_size .eq. 0) then
             res = .true.
             return !nothing to read
         end if 
     
-        inquire(fr_file, pos = position, opened = is_open)
+        inquire(this%file, pos = position, opened = is_open)
         
         if(.not. is_open) return
         
-        read(fr_file, pos = position + reader%header%sizes%forces_size, iostat = ierr) !just skip 
+        read(this%file, pos = position + this%header%sizes%forces_size, iostat = ierr) !just skip 
         if(ierr .ne. 0) return !something went wrong
 
         res = .true.
-    end function read_forces
+    end procedure trr_read_forces
 
-    function fill_atom_names(filename) result(res)
+    module procedure trr_fill_atom_names
         implicit none
-        character(*) :: filename
-        logical :: res
         integer :: ierr
         integer(int64) :: natoms
         character(128) :: dummy_str
@@ -381,31 +357,31 @@ submodule (FRAME_READERS) TRR_READER
 
         write(output_unit,'( "Opening ", A, " file...")') trim(filename)
 
-        open(newunit = fr_file1, file = filename, status = 'old', iostat = ierr)
+        open(newunit = this%file1, file = filename, status = 'old', iostat = ierr)
         if(ierr .ne. 0) return
 
-        read(fr_file1, "(A)", iostat = ierr) dummy_str !read header str
+        read(this%file1, "(A)", iostat = ierr) dummy_str !read header str
         if(ierr .ne. 0) return
 
-        read(fr_file1, *, iostat = ierr) natoms !read natoms
+        read(this%file1, *, iostat = ierr) natoms !read natoms
         if(ierr .ne. 0) return
         
-        if(natoms .ne. fr_frame%n_atoms) return
+        if(natoms .ne. this%frame%n_atoms) return
         
-        if(.not. allocated(fr_frame%names)) return !fr_atoms must be allocated
-        if(size(fr_frame%names) .ne. fr_frame%n_atoms) return !fr_atoms size must correspond to the file
+        if(.not. allocated(this%frame%names)) return !this%atoms must be allocated
+        if(size(this%frame%names) .ne. this%frame%n_atoms) return !this%atoms size must correspond to the file
         
         !fill in the atoms
-        read(fr_file1, "(I5,2A5)", iostat = ierr) &
-            (dummy_int, dummy_str, fr_frame%names(natoms),&
-            natoms = 1, fr_frame%n_atoms)
+        read(this%file1, "(I5,2A5)", iostat = ierr) &
+            (dummy_int, dummy_str, this%frame%names(natoms),&
+            natoms = 1, this%frame%n_atoms)
 
         if(ierr .ne. 0) return
         
-        close(fr_file1)
+        close(this%file1)
         
         res = .true.
-    end function fill_atom_names
+    end procedure trr_fill_atom_names
     
     module procedure trr_open_file
         implicit none
@@ -417,52 +393,52 @@ submodule (FRAME_READERS) TRR_READER
         ! - should work even if the following line is commented out
         if(.not. present(filename1)) error_stop("trr_open_file must be called with both arguments")
         
-        if(allocated(fr_frame%positions)) then
-            deallocate(fr_frame%positions)
+        if(allocated(this%frame%positions)) then
+            deallocate(this%frame%positions)
         end if
-        if(allocated(fr_frame%velocities)) then
-            deallocate(fr_frame%velocities)
+        if(allocated(this%frame%velocities)) then
+            deallocate(this%frame%velocities)
         end if
-        if(allocated(fr_frame%names)) then
-            deallocate(fr_frame%names)
+        if(allocated(this%frame%names)) then
+            deallocate(this%frame%names)
         end if
         
-        fr_frame%frame_number = 0
-        fr_frame%n_atoms = 0
-        fr_frame%has_velocities = .false.
+        this%frame%frame_number = 0
+        this%frame%n_atoms = 0
+        this%frame%has_velocities = .false.
 
-        inquire(fr_file, opened = is_open)
+        inquire(this%file, opened = is_open)
         if(is_open) then
-            close(fr_file)
+            close(this%file)
         end if
         
         write(output_unit,'( "Opening ", A, " file...")') trim(filename)
 
-        open(newunit = fr_file, file = filename, form = "unformatted",&
+        open(newunit = this%file, file = filename, form = "unformatted",&
                 access = 'stream', convert = 'big_endian', status = 'old', iostat = ierr)
         if(ierr .ne. 0) then
             res = ierr
             return
         end if
         
-        if(.not. read_header(this)) return
+        if(.not. this%read_header()) return
         
-        fr_frame%n_atoms = this%header%n_atoms
-        prev_n_atoms = fr_frame%n_atoms
+        this%frame%n_atoms = this%header%n_atoms
+        this%prev_n_atoms = this%frame%n_atoms
 
-        if(this%header%sizes%vel_size > 0) fr_frame%has_velocities = .true.
+        if(this%header%sizes%vel_size > 0) this%frame%has_velocities = .true.
 
-        allocate(fr_frame%positions(3,fr_frame%n_atoms), stat = ierr) !allocate space for atoms
+        allocate(this%frame%positions(3,this%frame%n_atoms), stat = ierr) !allocate space for atoms
         if(ierr .ne. 0) return
-        allocate(fr_frame%velocities(3,fr_frame%n_atoms), stat = ierr) !allocate space for atoms
+        allocate(this%frame%velocities(3,this%frame%n_atoms), stat = ierr) !allocate space for atoms
         if(ierr .ne. 0) return
-        allocate(fr_frame%names(fr_frame%n_atoms), stat = ierr) !allocate space for atoms
+        allocate(this%frame%names(this%frame%n_atoms), stat = ierr) !allocate space for atoms
         if(ierr .ne. 0) return
         
-        rewind(fr_file, iostat = ierr) !rewind
+        rewind(this%file, iostat = ierr) !rewind
         if(ierr .ne. 0) return
 
-        if(.not. fill_atom_names(filename1)) return
+        if(.not. this%fill_atom_names(filename1)) return
 
         res = 0
     end procedure trr_open_file
@@ -472,29 +448,29 @@ submodule (FRAME_READERS) TRR_READER
         logical :: is_open
         
         res = -1
-        inquire(fr_file, opened = is_open)
+        inquire(this%file, opened = is_open)
         if(.not. is_open) return
 
-        res = -2; if(.not. read_header(this)) return
+        res = -2; if(.not. this%read_header()) return
         
-        !check wheather the number of atoms changed, if yes, reallocate fr_atoms
-        if(this%header%n_atoms .ne. prev_n_atoms) then
+        !check wheather the number of atoms changed, if yes, reallocate this%atoms
+        if(this%header%n_atoms .ne. this%prev_n_atoms) then
             error_stop("trr reader does not support variable number of atoms") 
             !here one can implement variable number of atoms, but I dont want this functionality
         end if
         
-        res = -3; if(.not. read_ir(this)) return
-        res = -4; if(.not. read_e(this)) return
-        res = -5; if(.not. read_box(this)) return
-        res = -6; if(.not. read_vir(this)) return
-        res = -7; if(.not. read_pres(this)) return
-        res = -8; if(.not. read_top(this)) return
-        res = -9; if(.not. read_sym(this)) return
-        res = -10; if(.not. read_positions(this)) return
-        res = -11; if(.not. read_velocities(this)) return
-        res = -12; if(.not. read_forces(this)) return
+        res = -3; if(.not. this%read_ir()) return
+        res = -4; if(.not. this%read_e()) return
+        res = -5; if(.not. this%read_box()) return
+        res = -6; if(.not. this%read_vir()) return
+        res = -7; if(.not. this%read_pres()) return
+        res = -8; if(.not. this%read_top()) return
+        res = -9; if(.not. this%read_sym()) return
+        res = -10; if(.not. this%read_positions()) return
+        res = -11; if(.not. this%read_velocities()) return
+        res = -12; if(.not. this%read_forces()) return
 
-        fr_frame%frame_number = fr_frame%frame_number + 1
+        this%frame%frame_number = this%frame%frame_number + 1
         res = 0;
     end procedure trr_read_frame
 
@@ -505,16 +481,16 @@ submodule (FRAME_READERS) TRR_READER
         integer :: ierr
         res = -1
         
-        if(.not. read_header(this)) return !read header
+        if(.not. this%read_header()) return !read header
         
-        inquire(fr_file, opened = is_open, pos = position) !get position
+        inquire(this%file, opened = is_open, pos = position) !get position
         if(.not. is_open) return
         
         offset = sum(transfer(this%header%sizes, [integer(int32) ::], 10))
-        read(fr_file, pos = position + offset, iostat = ierr) !skips the data block
+        read(this%file, pos = position + offset, iostat = ierr) !skips the data block
         if(ierr .ne. 0) return
 
-        fr_frame%frame_number = fr_frame%frame_number + 1
+        this%frame%frame_number = this%frame%frame_number + 1
         res = 0
     end procedure trr_skip_frame
 
@@ -523,16 +499,16 @@ submodule (FRAME_READERS) TRR_READER
         logical :: is_open
         integer :: ierr
         
-        inquire(fr_file, opened = is_open)
+        inquire(this%file, opened = is_open)
         res = -1; if(.not. is_open) return
 
-        rewind(fr_file, iostat = ierr)
+        rewind(this%file, iostat = ierr)
         if(ierr .ne. 0) then
             res = ierr
             return
         end if
         
-        fr_frame%frame_number = 0
+        this%frame%frame_number = 0
         res = 0
     end procedure trr_rewind_file
 
@@ -540,27 +516,27 @@ submodule (FRAME_READERS) TRR_READER
         implicit none
         logical :: is_open
         
-        inquire(fr_file, opened = is_open)
+        inquire(this%file, opened = is_open)
         res = -1; if(.not. is_open) return
         
-        close(fr_file, iostat = res)
+        close(this%file, iostat = res)
         if(res .ne. 0) return
 
-        fr_file = 0
+        this%file = 0
 
-        if(allocated(fr_frame%positions)) deallocate(fr_frame%positions)
-        if(allocated(fr_frame%velocities)) deallocate(fr_frame%velocities)
-        if(allocated(fr_frame%names)) deallocate(fr_frame%names)
+        if(allocated(this%frame%positions)) deallocate(this%frame%positions)
+        if(allocated(this%frame%velocities)) deallocate(this%frame%velocities)
+        if(allocated(this%frame%names)) deallocate(this%frame%names)
         
-        fr_frame%n_atoms = 0
-        fr_frame%frame_number = 0
-        fr_frame%has_velocities = .false.
+        this%frame%n_atoms = 0
+        this%frame%frame_number = 0
+        this%frame%has_velocities = .false.
         res = 0 
     end procedure trr_close_file
 
     module procedure trr_is_open
         implicit none
-        inquire(fr_file, opened = res)
+        inquire(this%file, opened = res)
     end procedure trr_is_open
 
 end submodule TRR_READER
