@@ -5,11 +5,14 @@ use INTERFACE_UI
 use FRAME_READERS
 use BOXDATA
 use INSTANTANEOUS_SURFACE
+use DENSITY
+use SFG_STRUCT
 
 implicit none
 
 #include "utils_error_macros.h"
 
+!TODO cleanup of the garbage variables - most of them
 type(boxdata_type) ::                                       bd
 
 class(frame_reader), pointer ::                             fr
@@ -102,6 +105,9 @@ real*8, parameter ::                                        &
                                                             tollerance=0.004,&
                                                             waterDensity=0.03336 !N/A^3
 
+type(density_profile_type) :: heavy_atoms_density
+type(density_profile_type) :: waters_density
+real(real64), dimension(2) :: is_ret
 !##########################################EVALUATE PROGRAM SWITCHES###########################################
 
 call evaluate_program_options()
@@ -126,7 +132,10 @@ call instasurf_init(bd)
 error_io_check(instasurf_write_grid_interface(), "unable to write grid")
 error_io_check(instasurf_open_xyz_file(), "unable to open interface.xyz")
 
+error_io_check(read_struct("struct.txt"), "unable to read structure file")
 !TODO init density
+call heavy_atoms_density%init(bd%DENSITY_R_START, bd%DENSITY_R_END, bd%DENSITY_N_POINTS, bd%BOX_DIMENSIONS, "heavy_atoms")
+call waters_density%init(bd%DENSITY_R_START, bd%DENSITY_R_END, bd%DENSITY_N_POINTS, bd%BOX_DIMENSIONS, "waters")
 
 !TODO main loop
 
@@ -135,402 +144,91 @@ do step = 1, bd%NSTEP, bd%INTERFACE_SKIP
     print "(a,a,i,$)", char(13), "STEP: ", step
     
     error_io_check(fr%read_frame(), "unable to read a frame") !reading frame
+
+    !TODO calculate interface each INTERFACE_SKIP frames
+    error_io_check(instasurf_calculate(fr%frame, bd), "cannot calculate instasurf")
+    !TODO or read instantaneous surface from a file
     
-    !estimating center of the water slab TODO each step?
-    if (step == 0) then
-        print*, ""
-        print*, "estimating center of the water slab..."
-        zcenter = 0
+    !TODO calculation of densities & water dipole moments...
 
-        !if(bd%NO .ne. size(fr%molecule(:))) then
-        !	print*, "number of oxygens in BOXDATA file ", bd%NO, " does not match the number of oxygens in the frame ", size(fr%molecule(:))
-        !	exit
-        !endif
+    !density of liquid heavy atoms
+    associate(dp => heavy_atoms_density%bins(:))
+    !$omp parallel do &
+    !$omp default(none) &
+    !$omp shared(bd, fr, instasurf, heavy_atoms_density) &
+    !$omp private(i, is_ret) &
+    !$omp reduction(+:dp)
+    do i = 1, size(bd%LIQUID_HEAVY_ATOMS)
+        
+        is_ret = instasurf_get_distances(fr%frame%positions(:,i), bd)
+        call heavy_atoms_density%add_point(is_ret(1), 1.0_real64)
 
-        print*, "estimated center of the water slab is at Z = ", zcenter
-        print*, "_______________________________________________________________________________"
-    end if
-    
-    !TODO work with interface files - should be in INSTANTANEOUS_SURFACE module
+    end do
+    !$omp end parallel do
+    end associate
+    call heavy_atoms_density%next_frame()
 
-    error_io_check(instasurf_calculate(bd), "cannot calculate instasurf")
-    !TODO work with interface files - should be in INSTANTANEOUS_SURFACE module
+    !density of waters
+    associate(dp => waters_density%bins(:))
+    !$omp parallel do &
+    !$omp default(none) &
+    !$omp shared(bd, fr, instasurf, waters_density, sfg_structure) &
+    !$omp private(i, j, diff, is_ret) &
+    !$omp reduction(+:dp)
+    do i = 1, size(sfg_structure(1)%sfg_units)
 
-    
-    !TODO work with density file - should be in DENSITY module
-    !call frame_density_function()
+        !get "center of mass" (geometric average of all bases)
+        diff = 0
+        do j = 1, size(sfg_structure(1)%sfg_units(i)%chromophores)
+            diff = diff + pbc_wrap(fr%frame%positions(:,sfg_structure(1)%sfg_units(i)%chromophores(1)%base), bd)
+        end do
+        diff = diff /  size(sfg_structure(1)%sfg_units(i)%chromophores)
 
+        is_ret = instasurf_get_distances(diff, bd)
+        call waters_density%add_point(is_ret(1), 1.0_real64)
 
-    !instead of skipping frames calculate density file with all of them
-    !do k = 1, min(bd%INTERFACE_SKIP-1, bd%NSTEP-step)
-    !	print "(a,a,i,$)", char(13), "STEP: ", step+k
-    !	call fr%read_frame()
-    !	call frame_density_function()
-    !end do
+    end do
+    !$omp end parallel do
+    end associate
+    call waters_density%next_frame()
 
-    !TODO work with density file - should be in DENSITY module
-    
-    !TODO work with interface files - should be in INSTANTANEOUS_SURFACE module
-
-    !printing out each step in interface.xyz
-    !if(vmdout) then 
-    !	call vmd_out()
-    !end if
+    !TODO writing the instantaneous surface frames
     error_io_check(instasurf_write_xyz_frame(), "did not write the frame")
-
-    
-    !if(bd%cancel_interface_calculation == .false.) then
-    !	call bin_out()
-    !end if
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 end do
 
-!if(vmdout) then 
-!	close(f_interface)
-!end if
-!
-!close(f_interfacebin)
-!    !TODO work with interface files - should be in INSTANTANEOUS_SURFACE module
-!
-!!normalize the density function and write it into files
-!call evaluate_density_function()
-!
-!deallocate(points)
-!deallocate(density_function)
-
+!write the density files
+call heavy_atoms_density%write_file()
+call waters_density%write_file()
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!FUNCTIONS AND SUBROUTINES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 contains
 
-! evaluate_switches
+subroutine get_group_density()
+    !TODO
+    !!density of waters
+    !associate(dp => waters_density%bins(:))
+    !!$omp parallel do &
+    !!$omp default(none) &
+    !!$omp shared(bd, fr, instasurf, waters_density, sfg_structure) &
+    !!$omp private(i, j, diff, is_ret) &
+    !!$omp reduction(+:dp)
+    !do i = 1, size(sfg_structure(1)%sfg_units)
 
-!TODO GARBAGE
-!function abs_pbc_check(vector,box_dimensions)
-!	real*8, dimension(3) :: abs_pbc_check
-!	real*8, dimension(3), intent(IN) :: vector
-!	real*8, dimension(3), intent(IN) :: box_dimensions
-!	integer :: i
-!	
-!	abs_pbc_check = vector
-!	
-!	do i=1,3
-!		if (abs_pbc_check(i) < 0) then
-!			abs_pbc_check(i) = -abs_pbc_check(i)
-!		end if
-!		if (abs_pbc_check(i) > box_dimensions(i)/2) then
-!			abs_pbc_check(i) = box_dimensions(i) - abs_pbc_check(i)
-!		end if
-!	end do
-!	
-!end function abs_pbc_check
-!!TODO GARBAGE
-!
-!
-!!TODO GARBAGE
-!subroutine poke_rod() !private variables for parralelization should be: k,prev_rod_pos, rod_pos, p, pdiff, prev_pdiff , m, diff 
-!	!poking rod from bottom
-!	!k = maxval((/int(0, 8),prev_index(i,j,2)-20/)) <- seems weird, but max() does not work??? error #6414 this PARAMETER constant name is invalid in this context
-!	do k=maxval((/int(0, 8),prev_index(i,j,2)-20/)) ,n_points(3)
-!		prev_rod_pos = rod_pos
-!		rod_pos = bd%interface_volume_element*((/i,j,k/))+rod_start
-!		
-!		!evaluate p
-!		p=0
-!		
-!		do m=1, bd%NO
-!			diff = fr%molecule(m)%o%position - rod_pos
-!			!pbc correction              
-!			diff = abs_pbc_check(diff, bd%box_dimensions)
-!					
-!			r = norm2(diff)
-!			if (r<=3*E) then !after 3 sigma cut off ... the value would be too small to include and it is expesnive to calculate exp...
-!				p = p + exp(-r**2/(2*E**2))/((2*pi*E**2)**1.5)
-!			end if  
-!		end do
-!		
-!		!shaping the p
-!		prev_pdiff = pdiff
-!		pdiff = abs(bd%interface_density*waterDensity - p)
-!		
-!		!if the positive derivative is found ams the function has value lower than tollerance which is a number close to zero -> we have found the interface
-!		if(pdiff < tollerance) then
-!			if(pdiff > prev_pdiff) then
-!				found_bottom_interface = .true.
-!				points(i,j,2) = prev_rod_pos(3)
-!				prev_index(i,j,2) = k
-!				exit
-!			end if
-!		end if
-!	end do
-!			
-!	!poking rod from top
-!	!k=min((/n_points(3), prev_index(i,j,1)+20/)) <- seems weird, but max() does not work??? error #6414 this PARAMETER constant name is invalid in this context
-!	do k=minval((/n_points(3), prev_index(i,j,1)+20/)),0,-1
-!		prev_rod_pos = rod_pos
-!		rod_pos = bd%interface_volume_element*((/i,j,k/))+rod_start
-!		
-!		!evaluate p
-!		p=0
-!		
-!		do m=1, bd%NO
-!			diff = fr%molecule(m)%o%position - rod_pos
-!			!pbc correction              
-!			diff = abs_pbc_check(diff, bd%box_dimensions)
-!					
-!			r = norm2(diff)
-!			if (r<=3*E) then !after 3 sigma cut off ... the value would be too small to include and it is expesnive to calculate exp...
-!				p = p + exp(-r**2/(2*E**2))/((2*pi*E**2)**1.5)
-!			end if  
-!		end do
-!		
-!		prev_pdiff = pdiff
-!		pdiff = abs(bd%interface_density*waterDensity - p)
-!		
-!		!if the positive derivative is found ams the function has value lower than tollerance which is a number close to zero -> we have found the interface
-!		if(pdiff < tollerance) then
-!			if(pdiff > prev_pdiff) then
-!				found_uper_interface = .true.
-!				points(i,j,1) = prev_rod_pos(3)
-!				prev_index(i,j,1) = k
-!				exit
-!			end if
-!		end if
-!	end do
-!end subroutine poke_rod
-!!TODO GARBAGE
-!
-!!TODO internal part of INSTANTANEOUS SURFACE module
-!subroutine d_check()
-!	!checks if program found both interfaces
-!	
-!	if((found_uper_interface .and. found_bottom_interface) == .false.) then
-!		if((found_uper_interface .or. found_bottom_interface) == .false.) then
-!			errmsg = " program did not find neither the lower nor the upper interface"
-!		else if(found_bottom_interface == .false.) then
-!			errmsg = " program did not find the lower interface"
-!		else if(found_uper_interface == .false.) then
-!			errmsg = " program did not find the upper interface"
-!		end if
-!		
-!		print "(A,i10,A)", "in step n: ", step, errmsg
-!		
-!		stop
-!	end if 
-!	
-!end subroutine d_check
-!
-!subroutine vmd_out()
-!	rod_start = -bd%box_dimensions/2.0 + bd%interface_volume_element/2.0
-!	do i = 0, bd%INTERFACE_SKIP
-!		s=step+i
-!		write(f_interface,*) size(points)
-!		write(f_interface,*) "step =", s
-!		do j = 0, n_points(1)
-!			do k = 0, n_points(2)
-!				do m = 1, 2
-!					write(f_interface,*) "p", (/bd%interface_volume_element(1)*(j)+rod_start(1), bd%interface_volume_element(2)*(k)+rod_start(2), points(j,k,m)/)
-!				end do
-!			end do
-!		end do
-!	end do
-!end subroutine vmd_out
-!
-!subroutine bin_out()
-!	!write header at first!
-!	if(bin_header_done == .FALSE.) then
-!		!number of points in each step...
-!		write(f_interfacebin) int(size(points),8)
-!			!x,y grid
-!			do j = 0, n_points(1)
-!				do k = 0, n_points(2)
-!					write(f_interfacebin) bd%interface_volume_element(1)*(j)+rod_start(1), bd%interface_volume_element(2)*(k)+rod_start(2)
-!				end do
-!			end do
-!		bin_header_done = .TRUE.
-!	end if
-!	
-!	!continue with Z values bottom(1), top(2)
-!	
-!	do j = 0, n_points(1)
-!		do k = 0, n_points(2)
-!			do m = 1, 2
-!				write(f_interfacebin) points(j,k,m)
-!			end do
-!		end do
-!	end do
-!
-!end subroutine bin_out
-!!TODO internal part of INSTANTANEOUS SURFACE module
-!
-!!TODO already in SFG_UTILS module
-!function pbc_check(vector,box_dimensions)
-!
-!	real*8, dimension(3) :: pbc_check
-!	real*8, dimension(3), intent(IN) :: vector
-!	real*8, dimension(3), intent(IN) :: box_dimensions
-!	integer :: i
-!	
-!	pbc_check = vector
-!	
-!	do i=1,3
-!		if (pbc_check(i) > box_dimensions(i)/2) then
-!			pbc_check(i) = pbc_check(i) - box_dimensions(i)
-!		else if (pbc_check(i) < -box_dimensions(i)/2) then
-!			pbc_check(i) = box_dimensions(i) + pbc_check(i)
-!		end if
-!	end do
-!
-!end function pbc_check
-!!TODO already in SFG_UTILS module
-!
-!!TODO should be in the density module
-!subroutine frame_density_function
-!	integer :: x,y,x1,y1 !the position in the grid
-!	real*8 :: uz, dz !interface z value at position
-!	real*8 :: xgrid, ygrid, xt, yu
-!	real*8, dimension(3) :: diff
-!
-!	!$OMP PARALLEL DEFAULT(SHARED)
-!	!$OMP DO PRIVATE(m, diff, xgrid, ygrid, xt, yu, x, y, x1, y1, uz, dz) REDUCTION(+:density_function)
-!	do m=1,bd%NO
-!		diff = pbc_check(fr%molecule(m)%o%position, bd%box_dimensions)
-!		
-!		!find where the molecule belongs
-!		!X
-!		if( (diff(1) <= rod_start(1)) .or. (diff(1) > rod_start(1)+(n_points(1)+1)*bd%interface_volume_element(1)) ) then
-!			x = -1
-!		else
-!			x = ((diff(1)-rod_start(1)) / bd%interface_volume_element(1))
-!			x1 = x + 1
-!		end if
-!		!Y
-!		if( (diff(2) <= rod_start(2)) .or. (diff(2) > rod_start(2)+(n_points(2)+1)*bd%interface_volume_element(2)) ) then
-!			y = -1	
-!		else
-!			y = ((diff(2)-rod_start(2)) / bd%interface_volume_element(2))
-!			y1 = y + 1
-!		end if
-!
-!		!now we know where on the grid the molecule lives...
-!		!time to get the interface height on the molecules position...
-!		
-!		xgrid = rod_start(1) + x*bd%interface_volume_element(1)
-!		ygrid = rod_start(2) + y*bd%interface_volume_element(2)
-!
-!		!deal with the edge cases
-!		if(x < 0) then
-!			x=n_points(1)
-!			x1=0
-!		end if
-!		if(y < 0) then
-!			y=n_points(2)
-!			y1=0
-!		end if
-!		if(x1 > n_points(1)) then
-!			x1 = n_points(1)
-!			x = x1 - 1
-!		end if
-!		if(y1 > n_points(2)) then
-!			y1 = n_points(2)
-!			y = y1 - 1
-!		end if
-!		
-!		xt = (diff(1)-xgrid)/(bd%interface_volume_element(1))
-!		yu = (diff(2)-ygrid)/(bd%interface_volume_element(2))
-!		
-!		!interface z
-!		uz = (1-xt)*(1-yu)*points(x,y,1) + xt*(1-yu)*points(x1,y,1) + (1-xt)*yu*points(x,y1,1) + xt*yu*points(x1,y1,1) 
-!		dz = (1-xt)*(1-yu)*points(x,y,2) + xt*(1-yu)*points(x1,y,2) + (1-xt)*yu*points(x,y1,2) + xt*yu*points(x1,y1,2) 
-!		!distance from the interface
-!		uz = uz - diff(3)
-!		dz = diff(3) - dz
-!		
-!		! evaluating density function
-!		do i=1,nop
-!			if (uz >= (density_axis(i) - bd%density_tol) .and. (uz < density_axis(i)+bd%density_tol)) then
-!				density_function(i,1) = density_function(i,1) + 1
-!				density_function(i,2) = density_function(i,2) + 1
-!			end if
-!			if (dz >= (density_axis(i) - bd%density_tol) .and. (dz < density_axis(i) + bd%density_tol)) then
-!				density_function(i,1) = density_function(i,1) + 1
-!				density_function(i,3) = density_function(i,3) + 1
-!			end if
-!		end do
-!	end do
-!	!$OMP END DO
-!	!$OMP END PARALLEL
-!
-!end subroutine frame_density_function
-!
-!subroutine evaluate_density_function()
-!	integer ::                          f_density_vs_r
-!	
-!	open (newunit = f_density_vs_r, FILE="density.dat", RECL = 140, iostat = ierr)
-!	if(ierr .ne. 0) then
-!		print*, "ERROR: unable to create file called 'density.dat'" 
-!		stop
-!	end if
-!	
-!	write(f_density_vs_r,*) "#z-coordinate   av-density   up-density   down-density"
-!	
-!	do i=1,nop
-!		!print*, "dist: ", dist(i)
-!		!reporting number density in N/nm^3
-!		density_function(i,1) = ( density_function(i,1) / (bd%NSTEP*bd%density_tol*bd%box_dimensions(1)*bd%box_dimensions(2)*4) ) * 1000
-!		density_function(i,2) = ( density_function(i,2) / (bd%NSTEP*bd%density_tol*bd%box_dimensions(1)*bd%box_dimensions(2)*2) ) * 1000
-!		density_function(i,3) = ( density_function(i,3) / (bd%NSTEP*bd%density_tol*bd%box_dimensions(1)*bd%box_dimensions(2)*2) ) * 1000
-!		write(f_density_vs_r,*) density_axis(i) , density_function(i,1), density_function(i,2), density_function(i,3)
-!	end do
-!	
-!	close(f_density_vs_r)
-!	
-!end subroutine evaluate_density_function
-!!TODO should be in the density module
-!
-!!TODO should be in the INSTANTANEOUS SURFACE module
-!subroutine read_interface_frame()
-!	real*8 :: placeholder
-!	integer*8 :: npoint
-!	
-!	if( (mod(step,bd%INTERFACE_SKIP) == 0) ) then
-!		if(bin_header_done == .false.) then
-!			read(f_interfacebin, iostat = ierr), npoint
-!			if(ierr .ne. 0) then
-!				print*, "ERROR: 'interface.bin' does not have enough data inside"
-!				stop
-!			end if
-!			
-!			if(npoint .ne. size(points)) then
-!				print*, "ERROR: 'interface.bin' does not match the current setup or is corrupted"
-!				stop
-!			end if
-!
-!			!reading x,y values of points...
-!			do i = 1, size(points)/2
-!				read(f_interfacebin, iostat = ierr) placeholder, placeholder
-!				if(ierr .ne. 0) then
-!					print*, "ERROR: 'interface.bin' does not have enough data inside"
-!					stop
-!				end if
-!			end do
-!			bin_header_done = .true.
-!		end if
-!		
-!		!reading the z values of the points...
-!			
-!		do i = 0, n_points(1)
-!			do j = 0, n_points(2)
-!				read(f_interfacebin, iostat = ierr) points(i, j, 1), points(i, j, 2)
-!				if(ierr .ne. 0) then
-!					print*, "ERROR: 'interface.bin' does not have enough data inside"
-!					stop
-!				end if
-!			end do
-!		end do
-!	end if  
-!
-!end subroutine read_interface_frame
-!TODO should be in the INSTANTANEOUS SURFACE module
+    !    !get "center of mass" (geometric average of all bases)
+    !    diff = 0
+    !    do j = 1, size(sfg_structure(1)%sfg_units(i)%chromophores)
+    !        diff = diff + pbc_wrap(fr%frame%positions(:,sfg_structure(1)%sfg_units(i)%chromophores(1)%base), bd)
+    !    end do
+    !    diff = diff /  size(sfg_structure(1)%sfg_units(i)%chromophores)
+
+    !    is_ret = instasurf_get_distances(diff, bd)
+    !    call waters_density%add_point(is_ret(1), 1.0_real64)
+
+    !end do
+    !!$omp end parallel do
+    !end associate
+    !call waters_density%next_frame()
+end subroutine
 
 end program SFG_INTERFACE
