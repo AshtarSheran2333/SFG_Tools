@@ -35,7 +35,7 @@ module SFG_UTILS
         real(real64), dimension(3) :: back_in_the_box_baby
 
         back_in_the_box_baby = vector - bd%box_corner
-        back_in_the_box_baby = mod(back_in_the_box_baby , bd%box_dimensions) + bd%box_corner
+        back_in_the_box_baby = modulo(back_in_the_box_baby , bd%box_dimensions) + bd%box_corner
 
     end function pbc_wrap
 
