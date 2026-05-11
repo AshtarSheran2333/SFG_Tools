@@ -107,6 +107,8 @@ real*8, parameter ::                                        &
 
 type(density_profile_type) :: heavy_atoms_density
 type(density_profile_type) :: waters_density
+type(density_profile_type), dimension(:), allocatable :: up_group_densities, bot_group_densities
+
 real(real64), dimension(2) :: is_ret
 !##########################################EVALUATE PROGRAM SWITCHES###########################################
 
@@ -118,6 +120,10 @@ case (ui_filetype_gro)
     allocate(gro)
     fr => gro
     error_io_check(fr%open_file(ui_filename1), "unable to open file")
+case (ui_filetype_trr)
+    allocate(trr)
+    fr => trr
+    error_io_check(fr%open_file(ui_filename1, ui_filename2), "unable to open file")
 case default
     !TODO other filetypes
     error_stop("unknown input filetype")
@@ -136,6 +142,8 @@ error_io_check(read_struct("struct.txt"), "unable to read structure file")
 !TODO init density
 call heavy_atoms_density%init(bd%DENSITY_R_START, bd%DENSITY_R_END, bd%DENSITY_N_POINTS, bd%BOX_DIMENSIONS, "heavy_atoms")
 call waters_density%init(bd%DENSITY_R_START, bd%DENSITY_R_END, bd%DENSITY_N_POINTS, bd%BOX_DIMENSIONS, "waters")
+
+call init_group_densities()
 
 !TODO main loop
 
@@ -192,6 +200,10 @@ do step = 1, bd%NSTEP, bd%INTERFACE_SKIP
     end associate
     call waters_density%next_frame()
 
+    do j = 1, size(sfg_structure)
+        call get_group_density(j)
+    end do
+
     !TODO writing the instantaneous surface frames
     error_io_check(instasurf_write_xyz_frame(), "did not write the frame")
 
@@ -201,34 +213,62 @@ end do
 call heavy_atoms_density%write_file()
 call waters_density%write_file()
 
+do j = 1, size(sfg_structure)
+    call up_group_densities(j)%write_file()
+    call bot_group_densities(j)%write_file()
+end do
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!FUNCTIONS AND SUBROUTINES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 contains
 
-subroutine get_group_density()
-    !TODO
-    !!density of waters
-    !associate(dp => waters_density%bins(:))
-    !!$omp parallel do &
-    !!$omp default(none) &
-    !!$omp shared(bd, fr, instasurf, waters_density, sfg_structure) &
-    !!$omp private(i, j, diff, is_ret) &
-    !!$omp reduction(+:dp)
-    !do i = 1, size(sfg_structure(1)%sfg_units)
+subroutine init_group_densities()
+    implicit none
+    !TODO wrap SFG_struct into a type....
+    integer :: i
+    
+    if(allocated(up_group_densities)) deallocate(up_group_densities)
+    allocate(up_group_densities(size(sfg_structure)))
+    if(allocated(bot_group_densities)) deallocate(bot_group_densities)
+    allocate(bot_group_densities(size(sfg_structure)))
 
-    !    !get "center of mass" (geometric average of all bases)
-    !    diff = 0
-    !    do j = 1, size(sfg_structure(1)%sfg_units(i)%chromophores)
-    !        diff = diff + pbc_wrap(fr%frame%positions(:,sfg_structure(1)%sfg_units(i)%chromophores(1)%base), bd)
-    !    end do
-    !    diff = diff /  size(sfg_structure(1)%sfg_units(i)%chromophores)
+    do i = 1, size(sfg_structure)
+        call up_group_densities(i)%init(bd%DENSITY_R_START, bd%DENSITY_R_END, bd%DENSITY_N_POINTS, bd%BOX_DIMENSIONS, "up_"//trim(adjustl(sfg_structure(i)%name)))
+        call bot_group_densities(i)%init(bd%DENSITY_R_START, bd%DENSITY_R_END, bd%DENSITY_N_POINTS, bd%BOX_DIMENSIONS, "bot_"//trim(adjustl(sfg_structure(i)%name)))
+    end do
+end subroutine init_group_densities
 
-    !    is_ret = instasurf_get_distances(diff, bd)
-    !    call waters_density%add_point(is_ret(1), 1.0_real64)
+subroutine get_group_density(index)
+    implicit none
+    !TODO wrap SFG_struct into a type, pass it as an argument
+    integer, intent(in) :: index
+    integer :: i, j
 
-    !end do
-    !!$omp end parallel do
-    !end associate
-    !call waters_density%next_frame()
+    !density of structgroup
+    associate(udp => up_group_densities(index)%bins(:), &
+                bdp => bot_group_densities(index)%bins(:))
+    !$omp parallel do &
+    !$omp default(none) &
+    !$omp shared(bd, fr, instasurf, index, up_group_densities, bot_group_densities, sfg_structure) &
+    !$omp private(i, j, diff, is_ret) &
+    !$omp reduction(+:udp, bdp)
+    do i = 1, size(sfg_structure(index)%sfg_units)
+
+        !get "center of mass" (geometric average of all bases)
+        diff = 0
+        do j = 1, sfg_structure(index)%sfg_units(i)%n_unique_bases
+            diff = diff + pbc_wrap(fr%frame%positions(:,sfg_structure(index)%sfg_units(i)%unique_bases(j)), bd)
+        end do
+        diff = diff /  sfg_structure(index)%sfg_units(i)%n_unique_bases
+
+        is_ret = instasurf_get_distances(diff, bd)
+        call up_group_densities(index)%add_point(is_ret(2), 1.0_real64)
+        call bot_group_densities(index)%add_point(is_ret(1), 1.0_real64)
+
+    end do
+    !$omp end parallel do
+    end associate
+    call up_group_densities(index)%next_frame()
+    call bot_group_densities(index)%next_frame()
 end subroutine
 
 end program SFG_INTERFACE
