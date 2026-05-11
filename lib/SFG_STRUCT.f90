@@ -64,6 +64,8 @@ module SFG_STRUCT
     !--------------------------------------------------------------------------
     type sfg_unit
         type(chromophore), allocatable, dimension(:) :: chromophores
+        integer(kind = int32) :: n_unique_bases
+        integer, dimension(:), allocatable :: unique_bases !holds unique bases -> simpler density calculations...
     end type sfg_unit
     
     !----------------------------the input-------------------------------------
@@ -174,13 +176,53 @@ module SFG_STRUCT
         if(allocated(sfg_structure)) deallocate(sfg_structure)
     end subroutine clear_struct
     
+    subroutine fill_unique_bases(unit)
+        type(sfg_unit), intent(inout) :: unit
+        integer, dimension(:), allocatable :: temp_unique_bases
+        integer :: i,j
+        logical :: exists
+
+        if(allocated(unit%unique_bases)) then
+            deallocate(unit%unique_bases)
+            unit%n_unique_bases = 0
+        end if
+        
+        unit%n_unique_bases = 0
+
+        !go through all the bases of SFG unit
+        do i = 1, size(unit%chromophores)
+            if(.not. allocated(unit%unique_bases)) then !first iteration
+                allocate(unit%unique_bases(1))
+                unit%unique_bases(1) = unit%chromophores(i)%base
+                unit%n_unique_bases = 1
+                cycle
+            end if
+
+            !is this base unique?
+            exists = any(unit%unique_bases == unit%chromophores(i)%base) 
+            if(exists) cycle
+            
+            !found unique base - append unique_bases
+            allocate(temp_unique_bases(unit%n_unique_bases + 1))
+            
+            temp_unique_bases(1:unit%n_unique_bases) = unit%unique_bases
+            temp_unique_bases(unit%n_unique_bases + 1) = unit%chromophores(i)%base
+            
+            call move_alloc(from = temp_unique_bases, to = unit%unique_bases)
+            unit%n_unique_bases = unit%n_unique_bases + 1
+        end do
+        
+    end subroutine fill_unique_bases
+    
+    
     !append a group with name groupname
     !if that group does not exist, create that group
+    !makes sure that the unique bases are filled
     !todo make private
     subroutine append_group(groupname, unit)
         implicit none
         character(*), intent(in) :: groupname
-        type(sfg_unit), intent(in) :: unit
+        type(sfg_unit), intent(inout) :: unit
 
         type(structgroup), allocatable, dimension(:) :: temp_group
         type(sfg_unit), allocatable, dimension(:) :: temp_units
@@ -198,6 +240,8 @@ module SFG_STRUCT
             temp_group(1:size(sfg_structure)) = sfg_structure
             call move_alloc(from=temp_group, to=sfg_structure)
         end if
+
+        call fill_unique_bases(unit)
 
         !just push to struct i 
         if(.not. allocated(sfg_structure(i)%sfg_units)) then
@@ -271,8 +315,8 @@ module SFG_STRUCT
         implicit none
         type(sfg_unit), intent(inout) :: group
         integer :: res
-        integer, parameter :: max_hydroxyl_references = 12
-        integer, dimension(max_hydroxyl_references) :: ids
+        integer, parameter :: max_chromophore_references = 12
+        integer, dimension(max_chromophore_references) :: ids
         integer :: i, ierr
         character(128) :: line
         logical :: is_open
@@ -288,8 +332,8 @@ module SFG_STRUCT
         res = -2; if(ierr .ne. 0) return
         line_number = line_number + 1
 
-        read(line, *, iostat = ierr) (ids(i), i = 1, max_hydroxyl_references)
-        if(i <= 3) then !incomplete chromophore - must have PAR_ID, ACTOR, BASE
+        read(line, *, iostat = ierr) (ids(i), i = 1, max_chromophore_references)
+        if(i < 3) then !incomplete chromophore - must have PAR_ID, ACTOR, BASE
             backspace(file)
             line_number = line_number - 1
             res = -1
