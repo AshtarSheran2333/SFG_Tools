@@ -105,6 +105,8 @@ real*8, parameter ::                                        &
                                                             tollerance=0.004,&
                                                             waterDensity=0.03336 !N/A^3
 
+type(instantaneous_surface_type) :: instasurf
+
 type(density_profile_type) :: heavy_atoms_density
 type(density_profile_type) :: waters_density
 type(density_profile_type), dimension(:), allocatable :: up_group_densities, bot_group_densities
@@ -133,10 +135,10 @@ end select
 call bd%read_boxdata()
 
 ! TODO init instasurf & its files
-call instasurf_init(bd)
+call instasurf%init(bd)
 
-error_io_check(instasurf_write_grid_interface(), "unable to write grid")
-error_io_check(instasurf_open_xyz_file(), "unable to open interface.xyz")
+error_io_check(instasurf%write_grid_interface(), "unable to write grid")
+error_io_check(instasurf%open_xyz_file(), "unable to open interface.xyz")
 
 error_io_check(read_struct("struct.txt"), "unable to read structure file")
 !TODO init density
@@ -154,7 +156,7 @@ do step = 1, bd%NSTEP, bd%INTERFACE_SKIP
     error_io_check(fr%read_frame(), "unable to read a frame") !reading frame
 
     !TODO calculate interface each INTERFACE_SKIP frames
-    error_io_check(instasurf_calculate(fr%frame, bd), "cannot calculate instasurf")
+    error_io_check(instasurf%calculate(fr%frame, bd), "cannot calculate instasurf")
     !TODO or read instantaneous surface from a file
     
     !TODO calculation of densities & water dipole moments...
@@ -168,7 +170,7 @@ do step = 1, bd%NSTEP, bd%INTERFACE_SKIP
     !$omp reduction(+:dp)
     do i = 1, size(bd%LIQUID_HEAVY_ATOMS)
         
-        is_ret = instasurf_get_distances(fr%frame%positions(:,i), bd)
+        is_ret = instasurf%get_distances(fr%frame%positions(:,i), bd)
         call heavy_atoms_density%add_point(is_ret(1), 1.0_real64)
 
     end do
@@ -192,7 +194,7 @@ do step = 1, bd%NSTEP, bd%INTERFACE_SKIP
         end do
         diff = diff /  size(sfg_structure(1)%sfg_units(i)%chromophores)
 
-        is_ret = instasurf_get_distances(diff, bd)
+        is_ret = instasurf%get_distances(diff, bd)
         call waters_density%add_point(is_ret(1), 1.0_real64)
 
     end do
@@ -205,7 +207,7 @@ do step = 1, bd%NSTEP, bd%INTERFACE_SKIP
     end do
 
     !TODO writing the instantaneous surface frames
-    error_io_check(instasurf_write_xyz_frame(), "did not write the frame")
+    error_io_check(instasurf%write_xyz_frame(), "did not write the frame")
 
 end do
 
@@ -260,7 +262,7 @@ subroutine get_group_density(index)
         end do
         diff = diff /  sfg_structure(index)%sfg_units(i)%n_unique_bases
 
-        is_ret = instasurf_get_distances(diff, bd)
+        is_ret = instasurf%get_distances(diff, bd)
         call up_group_densities(index)%add_point(is_ret(2), 1.0_real64)
         call bot_group_densities(index)%add_point(is_ret(1), 1.0_real64)
 

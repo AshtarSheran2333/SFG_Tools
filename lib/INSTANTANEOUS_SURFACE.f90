@@ -5,7 +5,7 @@ module INSTANTANEOUS_SURFACE
     use BOXDATA, only: boxdata_type
     implicit none
     
-    type :: instantaneous_surface_structure
+    type :: instantaneous_surface_type
         integer(int64), dimension(3) :: n_points !number of iterations through space
         real(real64), dimension(3) :: volume_element
         real(real64), dimension(3) :: start !corner of the mesh
@@ -13,62 +13,82 @@ module INSTANTANEOUS_SURFACE
         real(real64), dimension(:,:), allocatable :: bot_mesh
         integer(int64), dimension(:,:), allocatable :: up_index !index of iteration to get the point
         integer(int64), dimension(:,:), allocatable :: bot_index !index of iteration to get the point
-    end type instantaneous_surface_structure
+
+        integer, private :: instasurf_bin_unit, instasurf_xyz_unit
+
+    contains
     
-    integer, parameter :: INSTASURF_BIN = 1, INSTASURF_XYZ = 2
+        procedure, public :: init
+        procedure, public :: init_flat
+        procedure, public :: calculate
+        procedure, public :: get_distances !result (/bot distance, up distance/)
+        procedure, public :: write_grid_interface
+        procedure, public :: open_bin_file
+        procedure, public :: open_xyz_file
+        procedure, public :: write_bin_frame
+        procedure, public :: write_xyz_frame
+        procedure, public :: read_next
+        procedure, public :: close_bin_file
+        procedure, public :: close_xyz_file
+        
+    end type instantaneous_surface_type
     
-    integer, private :: instasurf_bin_unit, instasurf_xyz_unit
-    type(instantaneous_surface_structure), allocatable, protected :: instasurf
     
 contains
 
-    subroutine instasurf_init(bd)
+    subroutine init(this, bd)
         implicit none
+        class(instantaneous_surface_type), intent(inout) :: this
         type(boxdata_type), intent(in) :: bd
         
         !wipe
-        if(allocated(instasurf)) deallocate(instasurf)
-        allocate(instasurf)
+        if(allocated(this%up_mesh)) deallocate(this%up_mesh)
+        if(allocated(this%bot_mesh)) deallocate(this%bot_mesh)
+        if(allocated(this%up_index)) deallocate(this%up_index)
+        if(allocated(this%bot_index)) deallocate(this%bot_index)
         
         !get mesh
-        instasurf%n_points = NINT(bd%box_dimensions/bd%interface_volume_element)
+        this%n_points = NINT(bd%box_dimensions/bd%interface_volume_element)
 
-        instasurf%volume_element = bd%box_dimensions/instasurf%n_points
+        this%volume_element = bd%box_dimensions/this%n_points
 
-        instasurf%start = bd%box_corner - instasurf%volume_element
+        this%start = bd%box_corner - this%volume_element
         
         !allocate containers
         
-        associate( i => instasurf%n_points(1), &
-                   j => instasurf%n_points(2))
+        associate( i => this%n_points(1), &
+                   j => this%n_points(2))
 
-        allocate(instasurf%up_mesh(i,j))
-        allocate(instasurf%bot_mesh(i,j))
-        allocate(instasurf%up_index(i,j))
-        allocate(instasurf%bot_index(i,j))
+        allocate(this%up_mesh(i,j))
+        allocate(this%bot_mesh(i,j))
+        allocate(this%up_index(i,j))
+        allocate(this%bot_index(i,j))
 
         end associate
 
-        instasurf%up_mesh = 0.0
-        instasurf%bot_mesh = 0.0
-        instasurf%up_index = instasurf%n_points(3)
-        instasurf%bot_index = 1
+        this%up_mesh = 0.0
+        this%bot_mesh = 0.0
+        this%up_index = this%n_points(3)
+        this%bot_index = 1
         
-    end subroutine instasurf_init
+    end subroutine init
 
-    subroutine instasurf_init_flat(bd, bot, up)
+    subroutine init_flat(this, bd, bot, up)
+        implicit none
+        class(instantaneous_surface_type), intent(inout) :: this
         type(boxdata_type), intent(in) :: bd
         real(real64), intent(in) :: bot, up
 
-        call instasurf_init(bd)
+        call this%init(bd)
 
-        instasurf%up_mesh = up
-        instasurf%bot_mesh = bot
-    end subroutine instasurf_init_flat
+        this%up_mesh = up
+        this%bot_mesh = bot
+    end subroutine init_flat
 
-    function instasurf_calculate(frame, bd) result(res)
+    function calculate(this, frame, bd) result(res)
         implicit none
         !TODO - ugly implementatation - calling the same block twice
+        class(instantaneous_surface_type), intent(inout) :: this
         type(current_frame_type), intent(in) :: frame
         type(boxdata_type), intent(in) :: bd
         integer(int32) :: res
@@ -87,23 +107,23 @@ contains
         
         !$OMP PARALLEL DO &
         !$OMP DEFAULT(NONE) &
-        !$OMP SHARED(instasurf, frame, bd, density_threshold, tollerance) &
+        !$OMP SHARED(this, frame, bd, density_threshold, tollerance) &
         !$OMP PRIVATE(i, j, k, m, found_up_interface, found_bot_interface, pos, prev_pos, diff, rho, rhodiff, prev_rhodiff, r) &
         !$OMP REDUCTION(+:res)
-        do i=1,instasurf%n_points(1)
+        do i=1,this%n_points(1)
             res = 0
-            do j=1,instasurf%n_points(2)
+            do j=1,this%n_points(2)
             
                 found_up_interface = .false.
                 found_bot_interface = .false.
                 
-                pos = instasurf%start
+                pos = this%start
                 rhodiff = density_threshold
     
                 !probing from bottom
-                do k=max(1_int64,instasurf%bot_index(i,j)-bd%interface_pushback), instasurf%n_points(3)
+                do k=max(1_int64,this%bot_index(i,j)-bd%interface_pushback), this%n_points(3)
                     prev_pos = pos
-                    pos = instasurf%volume_element * (/i,j,k/) + instasurf%start
+                    pos = this%volume_element * (/i,j,k/) + this%start
             
                     !evaluate rho
                     rho = 0
@@ -129,20 +149,20 @@ contains
                     if(prev_rhodiff < tollerance) then
                         if(rhodiff > prev_rhodiff) then
                             found_bot_interface = .true.
-                            instasurf%bot_mesh(i,j) = prev_pos(3)
-                            instasurf%bot_index(i,j) = k - 1
+                            this%bot_mesh(i,j) = prev_pos(3)
+                            this%bot_index(i,j) = k - 1
                             exit
                         end if
                     end if
                 end do
                 
-                pos = instasurf%start
+                pos = this%start
                 rhodiff = density_threshold
     
                 !poking rod from top
-                do k=min(instasurf%n_points(3), instasurf%up_index(i,j)+bd%interface_pushback),1,-1
+                do k=min(this%n_points(3), this%up_index(i,j)+bd%interface_pushback),1,-1
                     prev_pos = pos
-                    pos = instasurf%volume_element * (/i,j,k/) + instasurf%start
+                    pos = this%volume_element * (/i,j,k/) + this%start
             
                     !evaluate rho
                     rho = 0
@@ -168,8 +188,8 @@ contains
                     if(prev_rhodiff < tollerance) then
                         if(rhodiff > prev_rhodiff) then
                         found_up_interface = .true.
-                        instasurf%up_mesh(i,j) = prev_pos(3)
-                        instasurf%up_index(i,j) = k - 1
+                        this%up_mesh(i,j) = prev_pos(3)
+                        this%up_index(i,j) = k - 1
                         exit
                         end if
                     end if
@@ -186,10 +206,11 @@ contains
 
         if(res < 0) write(error_unit,"(A)") "ERROR: instasurf did not find all the points of interface grid"
         !TODO - here we potentially can look for the neighbor points and try to interpolate the missing points, but this should not happen
-    end function instasurf_calculate
+    end function calculate
 
-    function instasurf_get_distances(point, bd) result(distances)
+    function get_distances(this, point, bd) result(distances)
         implicit none
+        class(instantaneous_surface_type), intent(inout) :: this
         real(real64), dimension(3), intent(in) :: point
         type(boxdata_type), intent(in) :: bd
         real(real64), dimension(3) :: pos
@@ -201,40 +222,41 @@ contains
         
         !find where the point belongs on the grid
         !X
-        x = int((pos(1) - (instasurf%start(1) + instasurf%volume_element(1))) / instasurf%volume_element(1)) + 1
+        x = int((pos(1) - (this%start(1) + this%volume_element(1))) / this%volume_element(1)) + 1
         x1 = x + 1
         !Y
-        y = int((pos(2) - (instasurf%start(2) + instasurf%volume_element(2))) / instasurf%volume_element(2)) + 1
+        y = int((pos(2) - (this%start(2) + this%volume_element(2))) / this%volume_element(2)) + 1
         y1 = y + 1
 
         !deal with the edge cases
-        if(x > instasurf%n_points(1)) x = 1
-        if(x1 > instasurf%n_points(1)) x1 = 1
-        if(y > instasurf%n_points(2)) y = 1
-        if(y1 > instasurf%n_points(2)) y1 = 1
+        if(x > this%n_points(1)) x = 1
+        if(x1 > this%n_points(1)) x1 = 1
+        if(y > this%n_points(2)) y = 1
+        if(y1 > this%n_points(2)) y1 = 1
         
-        xgrid = instasurf%start(1) + x*instasurf%volume_element(1)
-        ygrid = instasurf%start(2) + y*instasurf%volume_element(2)
+        xgrid = this%start(1) + x*this%volume_element(1)
+        ygrid = this%start(2) + y*this%volume_element(2)
         
-        xt = (pos(1)-xgrid)/(instasurf%volume_element(1))
-        yu = (pos(2)-ygrid)/(instasurf%volume_element(2))
+        xt = (pos(1)-xgrid)/(this%volume_element(1))
+        yu = (pos(2)-ygrid)/(this%volume_element(2))
         
         !interface z
-        distances(2) = (1-xt)*(1-yu)*instasurf%up_mesh(x,y) &
-                    + xt*(1-yu)*instasurf%up_mesh(x1,y) &
-                    + (1-xt)*yu*instasurf%up_mesh(x,y1) &
-                    + xt*yu*instasurf%up_mesh(x1,y1)
+        distances(2) = (1-xt)*(1-yu)*this%up_mesh(x,y) &
+                    + xt*(1-yu)*this%up_mesh(x1,y) &
+                    + (1-xt)*yu*this%up_mesh(x,y1) &
+                    + xt*yu*this%up_mesh(x1,y1)
 
-        distances(1) = (1-xt)*(1-yu)*instasurf%bot_mesh(x,y) &
-                    + xt*(1-yu)*instasurf%bot_mesh(x1,y) &
-                    + (1-xt)*yu*instasurf%bot_mesh(x,y1) &
-                    + xt*yu*instasurf%bot_mesh(x1,y1)
+        distances(1) = (1-xt)*(1-yu)*this%bot_mesh(x,y) &
+                    + xt*(1-yu)*this%bot_mesh(x1,y) &
+                    + (1-xt)*yu*this%bot_mesh(x,y1) &
+                    + xt*yu*this%bot_mesh(x1,y1)
         !distance from the interface
         distances(1) = pos(3) - distances(1)
         distances(2) = distances(2) - pos(3)
-    end function
+    end function get_distances
 
-    function instasurf_write_grid_interface(filename) result(res)
+    function write_grid_interface(this, filename) result(res)
+        class(instantaneous_surface_type), intent(inout) :: this
         character(*), intent(IN), optional :: filename
         integer :: ierr, file_unit, res
         logical :: is_open
@@ -251,9 +273,9 @@ contains
         end if
         
         !write things...
-        associate( np => instasurf%n_points, &
-                    s => (instasurf%start + instasurf%volume_element), &
-                    e => (instasurf%start + instasurf%n_points * instasurf%volume_element) )
+        associate( np => this%n_points, &
+                    s => (this%start + this%volume_element), &
+                    e => (this%start + this%n_points * this%volume_element) )
         
         if(ierr == 0) write(file_unit,"('========== INTERFACE_GRID ==========')", iostat = ierr)
         if(ierr == 0) write(file_unit,"('| d | n_po |   start   |    end    |')", iostat = ierr)
@@ -268,9 +290,10 @@ contains
         
         res = ierr
         
-    end function instasurf_write_grid_interface
+    end function write_grid_interface
 
-    function instasurf_open_bin_file(read_only, must_exist, name) result(res)
+    function open_bin_file(this, read_only, must_exist, name) result(res)
+        class(instantaneous_surface_type), intent(inout) :: this
         character(*), intent(in), optional :: name
         logical, intent(in), optional :: read_only, must_exist
         character(128) :: file_name
@@ -278,8 +301,8 @@ contains
         logical :: is_open
         character(20) :: act, stat
         
-        inquire(instasurf_bin_unit, opened = is_open)
-        if(is_open) close(instasurf_bin_unit)
+        inquire(this%instasurf_bin_unit, opened = is_open)
+        if(is_open) close(this%instasurf_bin_unit)
         
         file_name = "interface.bin"
         stat = 'UNKNOWN'
@@ -298,23 +321,24 @@ contains
             if(read_only) act = 'READ'
         end if
             
-        open(newunit = instasurf_bin_unit, &
+        open(newunit = this%instasurf_bin_unit, &
                 file = trim(adjustl(file_name)), &
                 status = stat, &
                 action = act, &
                 form = "unformatted", &
                 access="stream", &
                 iostat = res)
-    end function
+    end function open_bin_file
 
-    function instasurf_open_xyz_file(name) result(res)
+    function open_xyz_file(this, name) result(res)
+        class(instantaneous_surface_type), intent(inout) :: this
         character(*), intent(in), optional :: name
         logical :: is_open
         integer :: res
         character(128) :: file_name
         
-        inquire(instasurf_xyz_unit, opened = is_open)
-        if(is_open) close(instasurf_xyz_unit)
+        inquire(this%instasurf_xyz_unit, opened = is_open)
+        if(is_open) close(this%instasurf_xyz_unit)
 
         file_name = "interface.xyz"
         
@@ -322,22 +346,24 @@ contains
             file_name = trim(adjustl(name))
         end if
         
-        open(newunit = instasurf_xyz_unit, &
+        open(newunit = this%instasurf_xyz_unit, &
                 file = trim(adjustl(file_name)), &
                 iostat = res)
-    end function
+    end function open_xyz_file
 
-    subroutine instasurf_write_bin_file()
+    subroutine write_bin_frame(this)
+        class(instantaneous_surface_type), intent(inout) :: this
         !open the instantaneous surfcace file
         !npoints, volume_element, start, up_mesh, bot_mesh
         stop "NOT IMPLEMENTED"
-    end subroutine
+    end subroutine write_bin_frame
 
-    function instasurf_write_xyz_frame() result(res)
+    function write_xyz_frame(this) result(res)
+        class(instantaneous_surface_type), intent(inout) :: this
         logical :: is_open
         integer :: res, i, j
         
-        inquire(instasurf_xyz_unit, opened = is_open)
+        inquire(this%instasurf_xyz_unit, opened = is_open)
         if(.not. is_open) then
             res = -1
             return
@@ -345,30 +371,30 @@ contains
         
         res = 0
         
-        if(res == 0) write(instasurf_xyz_unit, "(I0)", iostat = res) (size(instasurf%bot_mesh) + size(instasurf%up_mesh)) !number of points
-        if(res == 0) write(instasurf_xyz_unit, "(A,I0,A,I0,A)", iostat = res) "bot (", size(instasurf%bot_mesh), ") and up (", size(instasurf%up_mesh), ") interface mesh"
+        if(res == 0) write(this%instasurf_xyz_unit, "(I0)", iostat = res) (size(this%bot_mesh) + size(this%up_mesh)) !number of points
+        if(res == 0) write(this%instasurf_xyz_unit, "(A,I0,A,I0,A)", iostat = res) "bot (", size(this%bot_mesh), ") and up (", size(this%up_mesh), ") interface mesh"
 
         if(res == 0) then
-            do i = 1, size(instasurf%bot_mesh,1)
-                do j = 1, size(instasurf%bot_mesh,2)
-                    associate( x => instasurf%start(1) + i*instasurf%volume_element(1), &
-                                y => instasurf%start(2) + j*instasurf%volume_element(2), &
-                                z => instasurf%bot_mesh(i,j) )
+            do i = 1, size(this%bot_mesh,1)
+                do j = 1, size(this%bot_mesh,2)
+                    associate( x => this%start(1) + i*this%volume_element(1), &
+                                y => this%start(2) + j*this%volume_element(2), &
+                                z => this%bot_mesh(i,j) )
                     
-                    write(instasurf_xyz_unit, "(A, 3F8.3)", iostat = res) "P", x, y, z      
+                    write(this%instasurf_xyz_unit, "(A, 3F8.3)", iostat = res) "P", x, y, z      
                     if(res .ne. 0) return
 
                     end associate
                 end do
             end do
 
-            do i = 1, size(instasurf%up_mesh,1)
-                do j = 1, size(instasurf%up_mesh,2)
-                    associate( x => instasurf%start(1) + i*instasurf%volume_element(1), &
-                                y => instasurf%start(2) + j*instasurf%volume_element(2), &
-                                z => instasurf%up_mesh(i,j) )
+            do i = 1, size(this%up_mesh,1)
+                do j = 1, size(this%up_mesh,2)
+                    associate( x => this%start(1) + i*this%volume_element(1), &
+                                y => this%start(2) + j*this%volume_element(2), &
+                                z => this%up_mesh(i,j) )
                     
-                    write(instasurf_xyz_unit, "(A, 3F8.3)", iostat = res) "P", x, y, z      
+                    write(this%instasurf_xyz_unit, "(A, 3F8.3)", iostat = res) "P", x, y, z      
                     if(res .ne. 0) return
 
                     end associate
@@ -376,23 +402,26 @@ contains
             end do
         end if
 
-    end function instasurf_write_xyz_frame
+    end function write_xyz_frame
 
-    subroutine instasurf_read_next()
+    subroutine read_next(this)
+        class(instantaneous_surface_type), intent(inout) :: this
         !read the instantaneous surface from a file
         stop "NOT IMPLEMENTED"
-    end subroutine instasurf_read_next
+    end subroutine read_next
 
-    subroutine instasurf_close_bin_file()!
+    subroutine close_bin_file(this)
+        class(instantaneous_surface_type), intent(inout) :: this
         logical :: is_open
-        inquire(instasurf_bin_unit, opened = is_open)
-        if(is_open) close(instasurf_bin_unit)
-    end subroutine instasurf_close_bin_file 
+        inquire(this%instasurf_bin_unit, opened = is_open)
+        if(is_open) close(this%instasurf_bin_unit)
+    end subroutine close_bin_file 
     
-    subroutine instasurf_close_xyz_file()
+    subroutine close_xyz_file(this)
+        class(instantaneous_surface_type), intent(inout) :: this
         logical :: is_open
-        inquire(instasurf_xyz_unit, opened = is_open)
-        if(is_open) close(instasurf_xyz_unit)
-    end subroutine instasurf_close_xyz_file 
+        inquire(this%instasurf_xyz_unit, opened = is_open)
+        if(is_open) close(this%instasurf_xyz_unit)
+    end subroutine close_xyz_file 
 
 end module
