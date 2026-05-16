@@ -1,5 +1,6 @@
 submodule (FRAME_READERS) XYZ_READER
     use, intrinsic :: iso_fortran_env, only: output_unit, error_unit
+    use PRETTY_PRINT
     use UTILS_ERROR
     implicit none
     
@@ -170,6 +171,7 @@ submodule (FRAME_READERS) XYZ_READER
         end if
 
         write(output_unit,'( "Opening ", A, " file...")') trim(filename)
+        write(output_unit,f_line) ""
 
         if(present(filename1)) then
             res = this%open_with_velocities(filename, filename1)

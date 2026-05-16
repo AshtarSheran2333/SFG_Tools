@@ -1,5 +1,6 @@
 submodule (FRAME_READERS) GRO_READER
     use, intrinsic :: iso_fortran_env, only: output_unit
+    use PRETTY_PRINT
     use UTILS_ERROR
     implicit none
 
@@ -61,6 +62,7 @@ submodule (FRAME_READERS) GRO_READER
         end if
         
         write(output_unit,'( "Opening ", A, " file...")') trim(filename)
+        write(output_unit,f_line) ""
 
         open(newunit = this%file, file = filename, status = 'old', iostat = ierr)
         if(ierr .ne. 0) then
