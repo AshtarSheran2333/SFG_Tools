@@ -139,6 +139,7 @@ call instasurf%init(bd)
 
 error_io_check(instasurf%write_grid_interface(), "unable to write grid")
 error_io_check(instasurf%open_xyz_file(), "unable to open interface.xyz")
+error_io_check(instasurf%open_bin_file(), "unable to open interface.bin")
 
 error_io_check(read_struct("struct.txt"), "unable to read structure file")
 !TODO init density
@@ -207,7 +208,8 @@ do step = 1, bd%NSTEP, bd%INTERFACE_SKIP
     end do
 
     !TODO writing the instantaneous surface frames
-    error_io_check(instasurf%write_xyz_frame(), "did not write the frame")
+    error_io_check(instasurf%write_xyz_frame(), "did not write the xyz frame")
+    error_io_check(instasurf%write_bin_frame(), "did not write the bin frame")
 
 end do
 

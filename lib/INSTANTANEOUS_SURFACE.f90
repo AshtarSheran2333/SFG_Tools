@@ -33,6 +33,8 @@ module INSTANTANEOUS_SURFACE
         
     end type instantaneous_surface_type
     
+    integer(int32), parameter :: instantaneous_surface_magic = Z'53474653' !will be "SFGS" when hexdumped
+    integer(int32), parameter :: instantaneous_surface_bin_version = 0
     
 contains
 
@@ -326,7 +328,8 @@ contains
                 status = stat, &
                 action = act, &
                 form = "unformatted", &
-                access="stream", &
+                access = "stream", &
+                convert = "little_endian", &
                 iostat = res)
     end function open_bin_file
 
@@ -351,12 +354,26 @@ contains
                 iostat = res)
     end function open_xyz_file
 
-    subroutine write_bin_frame(this)
+    function write_bin_frame(this) result(res)
         class(instantaneous_surface_type), intent(inout) :: this
-        !open the instantaneous surfcace file
-        !npoints, volume_element, start, up_mesh, bot_mesh
-        stop "NOT IMPLEMENTED"
-    end subroutine write_bin_frame
+        logical :: is_open
+        integer :: res
+        
+        inquire(this%instasurf_bin_unit, opened = is_open)
+        res = -1; if(.not. is_open) return
+
+        res = 0
+
+        if(res == 0) write(this%instasurf_bin_unit, iostat = res) instantaneous_surface_magic
+        if(res == 0) write(this%instasurf_bin_unit, iostat = res) instantaneous_surface_bin_version
+        if(res == 0) write(this%instasurf_bin_unit, iostat = res) this%n_points
+        if(res == 0) write(this%instasurf_bin_unit, iostat = res) this%volume_element
+        if(res == 0) write(this%instasurf_bin_unit, iostat = res) this%start
+        if(res == 0) write(this%instasurf_bin_unit, iostat = res) this%up_mesh
+        if(res == 0) write(this%instasurf_bin_unit, iostat = res) this%bot_mesh
+        
+        !results in iostat
+    end function write_bin_frame
 
     function write_xyz_frame(this) result(res)
         class(instantaneous_surface_type), intent(inout) :: this
@@ -364,10 +381,7 @@ contains
         integer :: res, i, j
         
         inquire(this%instasurf_xyz_unit, opened = is_open)
-        if(.not. is_open) then
-            res = -1
-            return
-        end if
+        res = -1; if(.not. is_open) return
         
         res = 0
         
@@ -404,11 +418,74 @@ contains
 
     end function write_xyz_frame
 
-    subroutine read_next(this)
+    function read_next(this) result(res)
         class(instantaneous_surface_type), intent(inout) :: this
-        !read the instantaneous surface from a file
-        stop "NOT IMPLEMENTED"
-    end subroutine read_next
+        logical :: is_open
+        integer :: res
+        integer(int32) :: verify
+
+        inquire(this%instasurf_bin_unit, opened = is_open)
+        res = -1; if(.not. is_open) return
+        
+        res = 0
+        
+        if(res == 0) then !read and verify magic
+            read(this%instasurf_bin_unit, iostat = res) verify
+            if(res .ne. 0) return
+            if(verify .ne. instantaneous_surface_magic) then
+                write(output_unit,*) "ERROR: instantaneous surface magic is not correct"
+                res = -2
+                return
+            end if
+        end if
+
+        if(res == 0) then !read and verify version
+            read(this%instasurf_bin_unit, iostat = res) verify
+            if(res .ne. 0) return
+            if(verify .ne. instantaneous_surface_bin_version) then
+                write(output_unit,*) "ERROR: instantaneous surface version is not correct"
+                res = -3
+                return
+            end if
+        end if
+
+        if(res == 0) then !read n_points
+            read(this%instasurf_bin_unit, iostat = res) this%n_points
+            if(res .ne. 0) return
+
+            if(allocated(this%up_mesh)) then
+                !verify size against n_points
+                if( (size(this%up_mesh,1) .ne. this%n_points(1)) .or. &
+                    (size(this%up_mesh,1) .ne. this%n_points(1)) ) then
+                    !missmatch - deallocate, reallocate
+                    deallocate(this%up_mesh)
+                    allocate(this%up_mesh(this%n_points(1), this%n_points(2)))
+                end if
+            else
+                !allocate up_mesh
+                allocate(this%up_mesh(this%n_points(1), this%n_points(2)))
+            end if
+
+            if(allocated(this%bot_mesh)) then
+                !verify size against n_points
+                if( (size(this%bot_mesh,1) .ne. this%n_points(1)) .or. &
+                    (size(this%bot_mesh,2) .ne. this%n_points(2)) ) then
+                    !missmatch - deallocate, reallocate
+                    deallocate(this%bot_mesh)
+                    allocate(this%bot_mesh(this%n_points(1), this%n_points(2)))
+                end if
+            else
+                !allocate bot_mesh
+                allocate(this%bot_mesh(this%n_points(1), this%n_points(2)))
+            end if
+        end if
+
+        if(res == 0) read(this%instasurf_bin_unit, iostat = res) this%volume_element
+        if(res == 0) read(this%instasurf_bin_unit, iostat = res) this%start
+        if(res == 0) read(this%instasurf_bin_unit, iostat = res) this%up_mesh
+        if(res == 0) read(this%instasurf_bin_unit, iostat = res) this%bot_mesh
+
+    end function read_next
 
     subroutine close_bin_file(this)
         class(instantaneous_surface_type), intent(inout) :: this
