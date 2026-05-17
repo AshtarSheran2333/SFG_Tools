@@ -1,5 +1,6 @@
 module BOXDATA
     use iso_fortran_env
+    use PRETTY_PRINT
     use UTILS_ERROR
     implicit none
 
@@ -7,8 +8,7 @@ module BOXDATA
     
     type boxdata_type
         !PRIVATE variables
-        integer, private :: fileUnit,&
-                            layersCount = 1
+        integer, private :: fileUnit
 
         character(len=3), private :: polarization = "SSP"	
         
@@ -16,15 +16,14 @@ module BOXDATA
         real(real64), dimension(3) :: box_dimensions = (/-1,-1,-1/),& !Angstrom
                                       box_corner = (/0.0, 0.0, 0.0/),& !Angstrom
                                       interface_volume_element = (/0.5d0, 0.5d0, 0.25d0/) !Angstrom
-        
-        real(real64), dimension(7) :: layers_limits = (/0,0,0,0,0,0,0/) !Angstrom
+
+        real(real64), dimension(:), allocatable :: layers_limits !Angstrom
                                                             
-        
         real(real64) :: FREQ = 4000,& !cm-1
                         DFREQ = 1,& !cm-1
                         DT = -1,& !fs
-                        CORRLEN = 0,& !ps
-                        FILTER = 0,& !ps
+                        CORRLEN = 5,& !ps
+                        FILTER = 1.5,& !ps
                         TEMPERATURE = 300,& !K
                         DENSITY_R_START = -5.d0,& !min distance from instasurf A
                         DENSITY_R_END = 80.d0,& !max distance from instasurf A
@@ -49,7 +48,6 @@ module BOXDATA
 
         procedure, public :: read_boxdata
         procedure, public :: get_maxlag !TODO probably handled elsewhere
-        procedure, public :: get_layersCount
 
         procedure, private :: print_recap
         procedure, private :: read_box_dimensions
@@ -75,9 +73,140 @@ module BOXDATA
         procedure, private :: read_hbhist_skip
         procedure, private :: read_liquid_heavy_atoms
         procedure, private :: read_polarization
+
+        procedure, private :: post_read_values_validation
     end type boxdata_type
     
 contains
+
+function post_read_values_validation(this) result(res)
+    implicit none
+    class(boxdata_type) :: this
+    integer :: res
+    real(real64) :: temp_real
+    
+    res = 0
+    
+    !check that all the values are nonzero positive
+    if(any(this%box_dimensions <= 0)) then
+        res = res - 1
+        write(error_unit,f_line) "BOXDATA ERROR: $BOX_DIMENSIONS was not set or contains invalid values (<= 0)"
+    end if
+
+    !no check
+    !this%box_corner
+
+    !check that all the values are nonzero positive
+    if(any(this%interface_volume_element <= 0)) then
+        res = res - 1
+        write(error_unit,f_line) "BOXDATA ERROR: $INTERFACE_VOLUME_ELEMENT contains invalid values (<= 0)"
+    end if
+
+    !no check 
+    !this%layers_limits !Angstrom
+                                                            
+    !check nonzero, positive 
+    if(this%FREQ <= 0.0) then
+        write(output_unit,f_line) "BOXDATA WARNING: $FREQ - invalid value, reset to default (4000)"
+        this%FREQ = 4000.0
+    end if
+
+    !check nonzero, positive 
+    if(this%DFREQ <= 0.0) then
+        write(output_unit,f_line) "BOXDATA WARNING: $DFREQ - invalid value, reset to default (1)"
+        this%DFREQ = 1.0
+    end if
+
+    !check nonzero, positive 
+    if(this%DT <= 0.0) then
+        res = res - 1
+        write(error_unit,f_line) "BOXDATA ERROR: $DT was not set or contains invalid value (<= 0)"
+    end if
+
+    !check nonzero, positive 
+    if(this%CORRLEN <= 0.0) then
+        write(output_unit,f_line) "BOXDATA WARNING: $CORRLEN - invalid value, reset to default (5)"
+        this%CORRLEN = 5.0
+    end if
+
+    !check nonzero, positive 
+    if(this%FILTER <= 0.0) then
+        write(output_unit,f_line) "BOXDATA WARNING: $FILTER - invalid value, reset to default (1.5)"
+        this%FILTER = 1.5
+    end if
+
+    !check nonzero, positive 
+    if(this%TEMPERATURE <= 0.0) then
+        res = res - 1
+        write(error_unit,f_line) "BOXDATA ERROR: $TEMPERATURE contains invalid value (<= 0)"
+    end if
+
+    !check that start is < end 
+    if(this%DENSITY_R_START > this%DENSITY_R_END) then
+        write(output_unit,f_line) "BOXDATA WARNING: $DENSITY_R_START > $DENSITY_R_END - swapping values"
+        temp_real = this%DENSITY_R_START
+        this%DENSITY_R_START = this%DENSITY_R_END
+        this%DENSITY_R_END = temp_real
+    end if
+
+    !check nonzero, positive 
+    if(this%LIQUID_BULK_NUMBER_DENSITY <= 0.0) then
+        res = res - 1
+        write(error_unit,f_line) "BOXDATA ERROR: $LIQUID_BULK_NUMBER_DENSITY contains invalid value (<= 0)"
+    end if
+
+    !check nonzero, positive
+    if(this%COARSE_GRAINING_LENGTH <= 0.0) then
+        res = res - 1
+        write(error_unit,f_line) "BOXDATA ERROR: $COARSE_GRAINING_LENGTH contains invalid value (<= 0)"
+    end if
+
+    !check nonzero, positive
+    if(this%NSTEP <= 0.0) then
+        res = res - 1
+        write(error_unit,f_line) "BOXDATA ERROR: $NSTEP was not set or contains invalid value (<= 0)"
+    end if
+
+    !check <= 0 ---> 1
+    if(this%INTERFACE_SKIP <= 0.0) then
+        write(output_unit,f_line) "BOXDATA WARNING: $INTERFACE_SKIP - invalid value, reset to default (1)"
+        this%INTERFACE_SKIP = 1
+    end if
+
+    !check <= 0 ---> 1
+    if(this%CROSS_SKIP <= 0.0) then
+        write(output_unit,f_line) "BOXDATA WARNING: $CROSS_SKIP - invalid value, reset to default (1)"
+        this%CROSS_SKIP = 1
+    end if
+
+    !check <= 0 ---> 1
+    if(this%SELF_SKIP <= 0.0) then
+        write(output_unit,f_line) "BOXDATA WARNING: $SELF_SKIP - invalid value, reset to default (1)"
+        this%SELF_SKIP = 1
+    end if
+
+    !check nonzero, positive
+    if(this%INTERFACE_PUSHBACK <= 0.0) then
+        write(output_unit,f_line) "BOXDATA WARNING: $INTERFACE_PUSHBACK - invalid value, reset to default (100000)"
+        this%INTERFACE_PUSHBACK = 100000
+    end if
+    
+    !check <= 0 ---> 1
+    if(this%HBHIST_SKIP <= 0.0) then
+        write(output_unit,f_line) "BOXDATA WARNING: $HBHIST_SKIP - invalid value, reset to default (1)"
+        this%HBHIST_SKIP = 1
+    end if
+
+    !check nonzero, positive -> default
+    if(this%DENSITY_N_POINTS <= 0.0) then
+        write(output_unit,f_line) "BOXDATA WARNING: $DENSITY_N_POINTS - invalid value, reset to default (1000)"
+        this%DENSITY_N_POINTS = 1000
+    end if
+
+    !no check
+    !this%LIQUID_HEAVY_ATOMS
+
+end function post_read_values_validation
 
 function read_box_dimensions(this) result(res)
     implicit none
@@ -90,7 +219,7 @@ function read_box_dimensions(this) result(res)
     do i=1,3
         read(this%fileUnit,*, iostat = ierr) this%box_dimensions(i)
         if(ierr .ne. 0) then
-            print"(A,I0,A)", "BOXDATA ERROR: $BOX_DIMENSIONS(", i, ") does not contain proper data"
+            write(error_unit,"(A,I0,A)") "BOXDATA ERROR: $BOX_DIMENSIONS(", i, ") does not contain proper data"
             res = -1
         end if
     end do
@@ -107,7 +236,7 @@ function read_box_corner(this) result(res)
     do i=1,3
         read(this%fileUnit,*, iostat = ierr) this%box_corner(i)
         if(ierr .ne. 0) then
-            print"(A,I0,A)", "BOXDATA ERROR: $BOX_CORNER(", i, ") does not contain proper data"
+            write(error_unit,"(A,I0,A)") "BOXDATA ERROR: $BOX_CORNER(", i, ") does not contain proper data"
             res = -1
         end if
     end do
@@ -119,26 +248,28 @@ function read_layers_limits(this) result(res)
     character(len = 256) :: line
     integer :: i, ierr
     integer :: res
+    real(real64) :: limit
+    real(real64), dimension(:), allocatable :: temp
 
-    !TODO make it better
+    if(allocated(this%layers_limits)) deallocate(this%layers_limits)
 
     res = 0
 
     do i=1,7
         read(this%fileUnit,*, iostat = ierr) line
-        if(ierr .ne. 0) then
-            print*, "problem when reading BOXDATA $LAYERS_LIMITS is probably the last line of the file"
-        end if
-        read(line,*, iostat = ierr) this%layers_limits(i)
+        if(ierr .ne. 0) exit !if unable to read, it is the end of the file
+
+        read(line,*, iostat = ierr) limit
         if(ierr .eq. 0) then
-            this%layersCount = this%layersCount + 1
+            !append the layers_limits
+            allocate(temp(size(this%layers_limits)+1))
+            temp(1:size(this%layers_limits)) = this%layers_limits
+            temp(size(temp)) = limit
+            call move_alloc(from=temp, to=this%layers_limits)
         else
             !no more numbers to read
-            backspace(this%fileUnit, iostat = ierr)
-            if(ierr .ne. 0) then
-                print*, "backspace problem when reading $LAYERS_LIMITS"
-                stop
-            end if
+            backspace(this%fileUnit, iostat = ierr) !put back the line
+            error_io_check(ierr, "BOXDATA reading fatal error") !should not happen
             exit
         end if
     end do
@@ -155,7 +286,7 @@ function read_interface_volume_element(this) result(res)
     do i=1,3
         read(this%fileUnit,*, iostat = ierr) this%interface_volume_element(i)
         if(ierr .ne. 0) then
-            print"(a,i1,a)", "BOXDATA ERROR: $INTERFACE_VOLUME_ELEMENT(", i, ") does not contain proper data"
+            write(error_unit,"(a,i1,a)") "BOXDATA ERROR: $INTERFACE_VOLUME_ELEMENT(", i, ") does not contain proper data"
             res = -1
         end if
     end do
@@ -170,7 +301,7 @@ function read_freq(this) result(res)
     
     read(this%fileUnit,*, iostat = ierr) this%FREQ
     if(ierr .ne. 0) then
-        print"(a)", "BOXDATA ERROR: $FREQ does not contain proper data"
+        write(error_unit,f_line) "BOXDATA ERROR: $FREQ does not contain proper data"
         res = -1
     end if
 end function read_freq
@@ -184,7 +315,7 @@ function read_dfreq(this) result(res)
     
     read(this%fileUnit,*) this%DFREQ
     if(ierr .ne. 0) then
-        print"(a)", "BOXDATA ERROR: $DFREQ does not contain proper data"
+        write(error_unit,f_line) "BOXDATA ERROR: $DFREQ does not contain proper data"
         res = -1
     end if
 end function read_dfreq
@@ -198,7 +329,7 @@ function read_dt(this) result(res)
     
     read(this%fileUnit,*, iostat = ierr) this%DT
     if(ierr .ne. 0) then
-        print"(a)", "BOXDATA ERROR: $DT does not contain proper data"
+        write(error_unit,f_line) "BOXDATA ERROR: $DT does not contain proper data"
         res = -1
     end if
 end function read_dt
@@ -212,7 +343,7 @@ function read_corrlen(this) result(res)
     
     read(this%fileUnit,*, iostat = ierr) this%CORRLEN
     if(ierr .ne. 0) then
-        print"(a)", "BOXDATA ERROR: $CORRLEN does not contain proper data"
+        write(error_unit,f_line) "BOXDATA ERROR: $CORRLEN does not contain proper data"
         res = -1
     end if
 end function read_corrlen
@@ -224,17 +355,10 @@ function read_filter(this) result(res)
 
     res = 0
     
-    if(this%filter == 0) then
-        read(this%fileUnit,*, iostat = ierr) this%FILTER
-        if(ierr .ne. 0) then
-            print"(a)", "BOXDATA WARNING: $FILTER does not contain proper data"
-            print*, "Filter will be set to default value"
-            print*, ""
-        end if
-    else
-        print*, "REMINDER:"
-        print*, "$FILTER was modified by the program"
-        print*, "$FILTER value is set to:", this%filter
+    read(this%fileUnit,*, iostat = ierr) this%FILTER
+    if(ierr .ne. 0) then
+        write(error_unit,f_line) "BOXDATA ERROR: $FILTER does not contain proper data"
+        res = -1
     end if
 end function read_filter
 
@@ -247,7 +371,7 @@ function read_temperature(this) result(res)
     
     read(this%fileUnit,*, iostat = ierr) this%TEMPERATURE
     if(ierr .ne. 0) then
-        print"(a)", "BOXDATA ERROR: $TEMPERATURE does not contain proper data"
+        write(error_unit,f_line) "BOXDATA ERROR: $TEMPERATURE does not contain proper data"
         res = -1
     end if
 end function read_temperature
@@ -261,7 +385,7 @@ function read_density_r_start(this) result(res)
 
     read(this%fileUnit,*, iostat = ierr) this%density_r_start
     if(ierr .ne. 0) then
-        print"(a)", "BOXDATA ERROR: $DENSITY_R_START does not contain proper data"
+        write(error_unit,f_line) "BOXDATA ERROR: $DENSITY_R_START does not contain proper data"
         res = -1
     end if
 end function read_density_r_start
@@ -275,7 +399,7 @@ function read_density_r_end(this) result(res)
     
     read(this%fileUnit,*, iostat = ierr) this%density_r_end
     if(ierr .ne. 0) then
-        print"(a)", "BOXDATA ERROR: $DENSITY_R_end does not contain proper data"
+        write(error_unit,f_line) "BOXDATA ERROR: $DENSITY_R_END does not contain proper data"
         res = -1
     end if
 end function read_density_r_end
@@ -289,7 +413,7 @@ function read_density_n_points(this) result(res)
 
     read(this%fileUnit,*, iostat = ierr) this%density_n_points
     if(ierr .ne. 0) then
-        print"(a)", "BOXDATA ERROR: $DENSITY_N_POINTS does not contain proper data"
+        write(error_unit,f_line) "BOXDATA ERROR: $DENSITY_N_POINTS does not contain proper data"
         res = -1
     end if
 end function read_density_n_points
@@ -303,7 +427,7 @@ function read_liquid_bulk_number_density(this) result(res)
     
     read(this%fileUnit,*, iostat = ierr) this%liquid_bulk_number_density
     if(ierr .ne. 0) then
-        print"(a)", "BOXDATA ERROR: $INTERFACE_DENSITY does not contain proper data"
+        write(error_unit,f_line) "BOXDATA ERROR: $LIQUID_BULK_NUMBER_DENSITY does not contain proper data"
         res = -1
     end if
 end function read_liquid_bulk_number_density
@@ -317,7 +441,7 @@ function read_coarse_graining_length(this) result(res)
     
     read(this%fileUnit,*, iostat = ierr) this%coarse_graining_length
     if(ierr .ne. 0) then
-        print"(a)", "BOXDATA ERROR: $COARSE_GRAINING_LENGTH does not contain proper data"
+        write(error_unit,f_line) "BOXDATA ERROR: $COARSE_GRAINING_LENGTH does not contain proper data"
         res = -1
     end if
 end function read_coarse_graining_length
@@ -331,7 +455,7 @@ function read_nstep(this) result(res)
     
     read(this%fileUnit,*, iostat = ierr) this%NSTEP
     if(ierr .ne. 0) then
-        print"(a)", "BOXDATA ERROR: $NSTEP does not contain proper data"
+        write(error_unit,f_line) "BOXDATA ERROR: $NSTEP does not contain proper data"
         res = -1
     end if
 end function read_nstep
@@ -345,7 +469,7 @@ function read_interface_skip(this) result(res)
     
     read(this%fileUnit,*, iostat = ierr) this%INTERFACE_SKIP
     if(ierr .ne. 0) then
-        print"(a)", "BOXDATA ERROR: $INTERFACE_SKIP does not contain proper data"
+        write(error_unit,f_line) "BOXDATA ERROR: $INTERFACE_SKIP does not contain proper data"
         res = -1
     end if
 end function read_interface_skip
@@ -359,7 +483,7 @@ function read_cross_skip(this) result(res)
     
     read(this%fileUnit,*, iostat = ierr) this%cross_skip
     if(ierr .ne. 0) then
-        print"(a)", "BOXDATA ERROR: $CROSS_SKIP does not contain proper data"
+        write(error_unit,f_line) "BOXDATA ERROR: $CROSS_SKIP does not contain proper data"
         res = -1
     end if
 end function read_cross_skip
@@ -373,7 +497,7 @@ function read_self_skip(this) result(res)
     
     read(this%fileUnit,*, iostat = ierr) this%SELF_SKIP
     if(ierr .ne. 0) then
-        print"(a)", "BOXDATA ERROR: $SELF_SKIP does not contain proper data"
+        write(error_unit,f_line) "BOXDATA ERROR: $SELF_SKIP does not contain proper data"
         res = -1
     end if
 end function read_self_skip
@@ -387,7 +511,7 @@ function read_interface_pushback(this) result(res)
     
     read(this%fileUnit,*, iostat = ierr) this%INTERFACE_PUSHBACK
     if(ierr .ne. 0) then
-        print"(a)", "BOXDATA ERROR: $INTERFACE_PUSHBACK does not contain proper data"
+        write(error_unit,f_line) "BOXDATA ERROR: $INTERFACE_PUSHBACK does not contain proper data"
         res = -1
     end if
 end function read_interface_pushback
@@ -401,7 +525,7 @@ function read_hbhist_skip(this) result(res)
     
     read(this%fileUnit,*, iostat = ierr) this%HBHIST_SKIP
     if(ierr .ne. 0) then
-        print"(a)", "BOXDATA ERROR: $HBHIST_SKIP does not contain proper data"
+        write(error_unit,f_line) "BOXDATA ERROR: $HBHIST_SKIP does not contain proper data"
         res = -1
     end if
 end function read_hbhist_skip
@@ -439,7 +563,7 @@ function read_polarization(this) result(res)
             this%polarization = "PPP"	
         
         case default
-            print*, "BOXDATA ERROR: polarization ", line, " is not supported."
+            write(error_unit,"(A,A,A)") "BOXDATA ERROR: $POLARIZATION ", line, " is not supported."
             res = -1
     end select
 end function read_polarization
@@ -461,7 +585,7 @@ function read_liquid_heavy_atoms(this) result(res)
 
         numbers = 0
         read(line, *, iostat = ierr) (numbers(n), n = 1, size(numbers))
-        if(n == 1) then
+        if(n == 1) then !read until line does not contain a single number
             backspace(this%fileUnit)
             exit
         end if
@@ -481,7 +605,7 @@ function read_liquid_heavy_atoms(this) result(res)
         ierr = 0
     end do
 
-    res = 0
+    res = 0 !res is allways 0...
 end function read_liquid_heavy_atoms
 
 subroutine read_boxdata(this)
@@ -490,11 +614,13 @@ subroutine read_boxdata(this)
     integer :: ierr,&
                i,&
                error_count
+
+    error_count = 0
+    
+    write(output_unit,f_line) heading(flat_pattern, "Opening BOXDATA")
+    write(output_unit,f_line) ""
     
     open(newunit = this%fileUnit, file = "BOXDATA", status = 'old', iostat = ierr)
-    print*, "Opening BOXDATA..."
-    print*, ""
-    
     error_io_check(ierr, "Problem opening BOXDATA file")
     
     read(this%fileUnit,'(A)', iostat = ierr) line
@@ -578,161 +704,27 @@ subroutine read_boxdata(this)
             case("") !empty line
                 
             case default
-                print*, "BOXDATA REMAINDER: skipping ", trim(line), " - not a valid line"
-                
+                if(index(line, '#') .ne. 1) then
+                    write(output_unit,"(A,' ',A)") "BOXDATA WARNING: skipping invalid line:", trim(line)
+                end if
             end select
                 
         read(this%fileUnit,'(A)', IOSTAT = ierr) line
         
     end do
+
+    close(this%fileUnit)
     
-    !TODO post read check
+    error_count = error_count + this%post_read_values_validation()
     
+    call this%print_recap()
+
     if(error_count < 0) then !if error in reading the file
         error_stop("BOXDATA file contains some errors, fix them please")
     else
-        print*, "reading of the BOXDATA file - OK"
-        print*, ""
+        write(output_unit,f_line) heading(flat_pattern, "BOXDATA - DONE")
+        write(output_unit,f_line) ""
     end if
-    
-    !checking the input... catching errors in the initial values
-    
-    do i=1,3
-        if(this%box_dimensions(i) <= 0) then
-            print"(a,i1,a)", "ERROR: $BOX_DIMENSIONS(", i, ") is NOT positive nonzero value"
-!error = .true.
-        end if
-    end do
-    
-    do i=1,3
-        if(this%layers_limits(i) == 0) then
-            print"(a,i1,a)", "WARNING: $LAYERS_LIMITS(", i, ") is zero"
-            print*, "This will prevent Binder program to start"
-        end if
-    end do
-    
-    do i=1,3
-        if(this%interface_volume_element(i) <= 0) then
-            print"(a,i1,a)", "ERROR: $INTERFACE_VOLUME_ELEMENT(", i, ") is NOT positive nonzero value"
-!error = .true.
-        end if
-    end do    
-    
-    if(this%DFREQ >= this%FREQ) then !dfreq is too high
-        print*, "ERROR: $DFREQ is higher or equal to $FREQ"
-!error = .true.
-    end if
-    
-    if(this%DT <= 0) then
-        print*, "ERROR: $DT is not positive nonzero value"
-!error = .true.
-    end if
-    
-    if(this%corrlen == 0) then
-        print("(A)"), "WARNING:"
-        print*, "$CORRLEN was not declared in BOXDATA file"
-        print*, "Length of correlation function is set to $NSTEP in BOXDATA"
-        print*, "This might lead to long calculation time"
-        print*, ""
-    else if(int(1000*this%CORRLEN/this%dt) > this%nstep) then
-        print("(A)"), "WARNING:"
-        print*, "$CORRLEN was longer than length of the simulation"
-        print*, "$CORRLEN is set to the length of the simulation (ps): ", this%dt*this%nstep/1000
-        print*, "This might lead to long calculation time"
-        print*, ""
-    end if
-    
-    if(this%TEMPERATURE <= 0) then
-        print*, "ERROR: $TEMPERATURE is not positive nonzero value"
-!error = .true.
-    end if
-    
-    if(this%density_r_end <= this%density_r_start) then
-        print*, "ERROR: $DIPOLE_R_END is lower or equal to $DIPOLE_R_START"
-!error = .true.
-    end if
-    
-    if(this%NSTEP <= 0) then
-        print("(A)"), "ERROR:"
-        print*, "$NSTEP is not positive nonzero value"
-!error = .true.
-    end if    
-    
-    if(this%INTERFACE_SKIP < 0) then
-        print("(A)"), "WARNING:"
-        print*, "$INTERFACE_SKIP is negative number - absolute value will be used"
-        this%INTERFACE_SKIP = -this%INTERFACE_SKIP
-    end if  
-
-    if(this%INTERFACE_SKIP == 0) then
-        this%INTERFACE_SKIP = 1
-    end if  
-    
-    if(this%CROSS_SKIP < 0) then
-        print("(A)"), "WARNING:"
-        print*, "$CROSS_SKIP is negative number - absolute value will be used"
-        this%CROSS_SKIP = -this%CROSS_SKIP
-    end if  
-
-    if(this%CROSS_SKIP == 0) then
-        this%CROSS_SKIP = 1
-    end if  
-    
-    if(this%SELF_SKIP < 0) then
-        print("(A)"), "WARNING:"
-        print*, "$SELF_SKIP is negative number - absolute value will be used"
-        this%SELF_SKIP = -this%SELF_SKIP
-    end if  
-
-    if(this%SELF_SKIP == 0) then
-        this%SELF_SKIP = 1
-    end if  
-
-    if(this%HBHIST_SKIP < 0) then
-        print("(A)"), "WARNING:"
-        print*, "$HBHIST_SKIP is negative number - absolute value will be used"
-        this%HBHIST_SKIP = -this%HBHIST_SKIP
-    end if  
-
-    if(this%HBHIST_SKIP == 0) then
-        this%HBHIST_SKIP = 1
-    end if  
-
-    if (this%INTERFACE_PUSHBACK <= 0) then
-        print("(A)"), "WARNING:"
-        print*, "$INTERFACE_PUSHBACK in BOXDATA file is set to 0 or negative number"
-        print*, "setting $INTERFACE_PUSHBACK to max value"
-        print*, "this may lead to longer calculation time"
-        this%INTERFACE_PUSHBACK = 100000
-    end if    
-    
-    if(this%filter <= 0) then
-        !filter <= 0 makes no sense -> Simones default version...
-        !default filter value by Simone after the change of filter
-        print("(A)"), "WARNING:"
-        print*, "filter was set to a negative or zero value: ", this%filter
-        this%filter = 1.06
-        print*, "the filter value was modified to value: ", this%filter, " ps"
-    else
-        !filter is set according to the value in boxdata (can be overriden by -filter switch in program switches evaluation) 
-    end if
-
-    if(error_count < 0) then
-        print*, ""
-        print*, "BOXDATA file has some ERRORS in the input values, please fix them"
-        stop
-    else
-        print*, "checking the BOXDATA values - OK"
-        print*, ""
-    end if
-    
-    print*, "BOXDATA reading finished"
-    print*, ""
-    
-    call this%print_recap()
-    print*, ""
-    
-    close(this%fileUnit)
     
 end subroutine read_boxdata
 
@@ -750,53 +742,57 @@ integer*8 function get_maxlag(this)
 
 end function get_maxlag
 
-integer*8 function get_layersCount(this)
-    class(boxdata_type) :: this
-    
-    get_layersCount = this%layersCount
-end function get_layersCount
-
 subroutine print_recap(this)
     class(boxdata_type) :: this
     integer :: i
     
     !TODO update this function when everything is settled
-    print*, "BOXDATA RECAP:"
-    print*, ""
+    write(output_unit,f_line) ""
+    write(output_unit,f_line) "BOXDATA RECAP:"
+    write(output_unit,f_line) ""
 
     !arrays
-    print "(A40,5X,F10.3)", adjustl("BOX_DIMENSIONS"), this%box_dimensions(1)
-    print "(A40,5X,F10.3)", adjustl(""), this%box_dimensions(2)
-    print "(A40,5X,F10.3)", adjustl(""), this%box_dimensions(3)
-    print "(A40,5X,F10.3)", adjustl("INTERFACE_VOLUME_ELEMENT"), this%interface_volume_element(1)
-    print "(A40,5X,F10.3)", adjustl(""), this%interface_volume_element(2)
-    print "(A40,5X,F10.3)", adjustl(""), this%interface_volume_element(3)
-    print "(A40,5X,F10.3)", adjustl("LAYERS_LIMITS"), this%layers_limits(1)
-    do i = 2, this%layersCount-1
-        print "(A40,5X,F10.3)", adjustl(""), this%layers_limits(i)
+    write(output_unit,"(A40,5X,F10.3)") "BOX_DIMENSIONS", this%box_dimensions(1)
+    write(output_unit,"(A40,5X,F10.3)") "", this%box_dimensions(2)
+    write(output_unit,"(A40,5X,F10.3)") "", this%box_dimensions(3)
+    write(output_unit,"(A40,5X,F10.3)") "BOX_CORNER", this%box_corner(1)
+    write(output_unit,"(A40,5X,F10.3)") "", this%box_corner(2)
+    write(output_unit,"(A40,5X,F10.3)") "", this%box_corner(3)
+    write(output_unit,"(A40,5X,F10.3)") "INTERFACE_VOLUME_ELEMENT", this%interface_volume_element(1)
+    write(output_unit,"(A40,5X,F10.3)") "", this%interface_volume_element(2)
+    write(output_unit,"(A40,5X,F10.3)") "", this%interface_volume_element(3)
+    write(output_unit,"(A40,5X,F10.3)") "LAYERS_LIMITS", this%layers_limits(1)
+    do i=2, size(this%layers_limits)
+        write(output_unit,"(A40,5X,F10.3)") "", this%layers_limits(i)
     end do
 
     !reals
-    print "(A40,5X,F10.3)", adjustl("FREQ"), this%FREQ
-    print "(A40,5X,F10.3)", adjustl("DFREQ"), this%DFREQ
-    print "(A40,5X,F10.3)", adjustl("DT"), this%DT
-    print "(A40,5X,F10.3)", adjustl("CORRLEN"), this%CORRLEN
-    print "(A40,5X,F10.3)", adjustl("FILTER"), this%FILTER
-    print "(A40,5X,F10.3)", adjustl("TEMPERATURE"), this%TEMPERATURE
+    write(output_unit,"(A40,5X,F10.3)") "FREQ", this%FREQ
+    write(output_unit,"(A40,5X,F10.3)") "DFREQ", this%DFREQ
+    write(output_unit,"(A40,5X,F10.3)") "DT", this%DT
+    write(output_unit,"(A40,5X,F10.3)") "CORRLEN", this%CORRLEN
+    write(output_unit,"(A40,5X,F10.3)") "FILTER", this%FILTER
+    write(output_unit,"(A40,5X,F10.3)") "TEMPERATURE", this%TEMPERATURE
+    write(output_unit,"(A40,5X,F10.3)") "DENSITY_R_START", this%DENSITY_R_START
+    write(output_unit,"(A40,5X,F10.3)") "DENSITY_R_END", this%DENSITY_R_END
+    write(output_unit,"(A40,5X,F10.3)") "LIQUID_BULK_NUMBER_DENSITY", this%LIQUID_BULK_NUMBER_DENSITY
+    write(output_unit,"(A40,5X,F10.3)") "COARSE_GRAINING_LENGTH", this%COARSE_GRAINING_LENGTH
 
     !integers
-    print "(A40,5X,I10)", adjustl("NSTEP"), this%NSTEP
-    print "(A40,5X,I10)", adjustl("INTERFACE_SKIP"), this%INTERFACE_SKIP
-    print "(A40,5X,I10)", adjustl("CROSS_SKIP"), this%CROSS_SKIP
-    print "(A40,5X,I10)", adjustl("SELF_SKIP"), this%SELF_SKIP
-    print "(A40,5X,I10)", adjustl("INTERFACE_PUSHBACK"), this%INTERFACE_PUSHBACK
-    print "(A40,5X,I10)", adjustl("HBHIST_SKIP"), this%HBHIST_SKIP
+    write(output_unit,"(A40,5X,I10)") "NSTEP", this%NSTEP
+    write(output_unit,"(A40,5X,I10)") "INTERFACE_SKIP", this%INTERFACE_SKIP
+    write(output_unit,"(A40,5X,I10)") "CROSS_SKIP", this%CROSS_SKIP
+    write(output_unit,"(A40,5X,I10)") "SELF_SKIP", this%SELF_SKIP
+    write(output_unit,"(A40,5X,I10)") "INTERFACE_PUSHBACK", this%INTERFACE_PUSHBACK
+    write(output_unit,"(A40,5X,I10)") "HBHIST_SKIP", this%HBHIST_SKIP
+    write(output_unit,"(A40,5X,I10)") "DENSITY_N_POINTS", this%DENSITY_N_POINTS
 
     !chars
-    print "(A40,5X,A10)", adjustl("POLARIZATION"), adjustr(this%polarization)
+    write(output_unit,"(A40,5X,A10)") "POLARIZATION", this%polarization
 
     !logicals
-    
+
+    write(output_unit,f_line) ""
 
 end subroutine print_recap
 
