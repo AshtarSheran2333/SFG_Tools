@@ -25,35 +25,46 @@ integer(int64) ::											step
 
 call evaluate_program_options(fr)
 
-!TODO read BOXDATA
+call bd%read_boxdata()
 
-!TODO READ INTERFACE
+!init instasurf & its files
+error_io_check(instasurf%open_bin_file(read_only = .true., must_exist = .true., name = "interface.bin"), "Problem opening interface.bin file")
 
-!TODO READ STRUCT
+!read structure
+error_io_check(struct%read_structure("struct.txt"), "unable to read structure file")
 
 !TODO INIT BINDER
 
-!TODO MAIN LOOP
+write(output_unit,f_line) heading(wavy_pattern, "Binder calculation started")
+write(output_unit,f_line) ""
 
+!################################ MAIN LOOP ####################################
 do step = 1, bd%NSTEP
 
 	!TODO reading frame
+    error_io_check(fr%read_frame(), "unable to read a frame") !reading frame
 	
 	!TODO estimate center of the water slab
 	
-    !TODO read interface each INTERFACE_SKIP
+    if(mod(step, bd%INTERFACE_SKIP) == 1) then
+        !TODO better reporting - need to report step number
+        error_io_check(instasurf%read_next(), "unable to read instantaneous surface")
+    end if
 	
 	!TODO loop over all chromophores in the system, assign it a layer
     
     !TODO write binder frame
     
     !TODO print progress
-end do
+    call print_main_loop_progress(step, bd%NSTEP)
+
+end do !end of the main loop
 
 !TODO finalize() cleanup
+call instasurf%close_bin_file()
 
-!TODO print done
-print*, ""
+write(output_unit,f_line) ""
+write(output_unit,f_line) heading(wavy_pattern, "Binder calculation - DONE")
 
 contains
 
