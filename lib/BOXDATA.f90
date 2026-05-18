@@ -103,7 +103,8 @@ function post_read_values_validation(this) result(res)
     end if
 
     !no check 
-    !this%layers_limits !Angstrom
+    !this%layers_limits
+    !TODO check ascending order!!!
                                                             
     !check nonzero, positive 
     if(this%FREQ <= 0.0) then
