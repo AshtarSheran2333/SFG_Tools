@@ -3,6 +3,11 @@ module UTILS_ERROR
     implicit none
     contains
 
+    !todo a function that prints an error message, a number (iteration), file, line, calls a callback, and exits
+    subroutine utils_error_callback_exit(ierr, msg, callback, file, line)
+        integer:: ierr, msg, callback, file, line
+    end subroutine
+
     !stops the program from execution, and prints the message
     subroutine utils_error_io_check(ierr, msg, file, line)
         integer, intent(in) :: ierr

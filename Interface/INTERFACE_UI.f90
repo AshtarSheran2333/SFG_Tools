@@ -92,12 +92,11 @@ module INTERFACE_UI
 
             select case(option)
                 case('i')
-                    write(output_unit,f_line) "input file:"
-                    write(output_unit,f_line) ""
+                    write(output_unit,f_line) "-I(input):"
                     call get_switch_string(i, op, arg)
                     ! INPUT GRO
                     if(index(arg, '.gro') .ne. 0) then
-                        write(output_unit, "(tr4,a,tr4,a)") ".gro multiple frame file: ", trim(arg)
+                        write(output_unit, f_1tab) ".gro multiple frame file: "//trim(arg)
                         write(output_unit,f_line) ""
                         ui_filetype = ui_filetype_gro
                         ui_filename1 = trim(adjustl(arg))
@@ -105,8 +104,8 @@ module INTERFACE_UI
                     else if(index(arg, '.xyz') .ne. 0) then
                         call get_switch_string(i, op, arg1)
                         if(index(arg1, '.xyz') .ne. 0) then
-                            write(output_unit,"(tr4,a,tr4,a)") ".xyz position file: ", trim(arg)
-                            write(output_unit,"(tr4,a,tr4,a)") ".xyz velocity file: ", trim(arg1)
+                            write(output_unit,f_1tab) ".xyz position file: "//trim(arg)
+                            write(output_unit,f_1tab) ".xyz velocity file: "//trim(arg1)
                             write(output_unit,f_line) ""
                             ui_filetype = ui_filetype_xyz
                             ui_filename1 = trim(adjustl(arg))
@@ -119,8 +118,8 @@ module INTERFACE_UI
                     else if(index(arg, '.trr') .ne. 0) then
                         call get_switch_string(i, op, arg1)
                         if(index(arg1, '.gro') .ne. 0) then
-                            write(output_unit,"(tr4,a,tr4,a)") ".trr trajectory file: ", trim(arg)
-                            write(output_unit,"(tr4,a,tr4,a)") ".gro atleast single frame file: ", trim(arg1)
+                            write(output_unit,f_1tab) ".trr trajectory file: "//trim(arg)
+                            write(output_unit,f_1tab) ".gro atleast single frame file: "//trim(arg1)
                             write(output_unit,f_line) ""
                             ui_filetype = ui_filetype_trr
                             ui_filename1 = trim(adjustl(arg))
@@ -133,18 +132,19 @@ module INTERFACE_UI
                     end if
                     i = i + 1
                 case('v')
+                    write(output_unit,f_line) "-V(vmdout) selected"
+                    write(output_unit,f_line) ""
                     ui_vmd_out = .true.
                     i = i + 1
                 case default
-                    write(output_unit,f_line) "skipping invalid option: "//trim(op)
+                    write(output_unit,f_line) trim(op)//" skipped - invalid option"
+                    write(output_unit,f_line) ""
                     i = i + 1
             end select
 
             ! all the switches were evaluated
             if(i > command_argument_count()) exit
         end do
-
-        write(output_unit,f_line) ""
 
         ! check if all the mandatory options were selected
         if(ui_filetype == ui_filetype_none) then

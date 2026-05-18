@@ -1,4 +1,6 @@
 module PRETTY_PRINT
+    use iso_fortran_env
+    implicit none
     
     character(len=*), parameter ::  f_line = "(A)",&
                                     f_1tab = "(T4, A)",&
@@ -51,5 +53,18 @@ module PRETTY_PRINT
         res(pos:pos+l-1) = str(1:l)
         res(pos+l:pos+l) = " "
     end function heading
+
+    subroutine print_main_loop_progress(iteration, steps)
+        integer(int64), intent(in) :: iteration, steps
+        integer(int64) :: current_value
+        real(real32), save :: last_value = -1
+
+        current_value = int(1000 * real(iteration) / real(steps))
+        
+        if(current_value .ne. last_value) then
+            write(output_unit,"(A,' ',F5.1,'%')") "Progress:", current_value / 10.0
+            last_value = current_value
+        end if
+    end subroutine
 
 end module

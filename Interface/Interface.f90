@@ -67,12 +67,12 @@ error_io_check(read_struct("struct.txt"), "unable to read structure file")
 !init densities
 call init_group_densities()
 
+write(output_unit,f_line) heading(wavy_pattern, "Interface calculation started")
+write(output_unit,f_line) ""
+
 !main loop
 do step = 1, bd%NSTEP, bd%INTERFACE_SKIP
-    
-    !TODO report %
-    print "(a,a,i,$)", char(13), "STEP: ", step
-    
+
     error_io_check(fr%read_frame(), "unable to read a frame") !reading frame
 
     !calculate the instantaneous surface each INTERFACE_SKIP frames
@@ -99,10 +99,15 @@ do step = 1, bd%NSTEP, bd%INTERFACE_SKIP
         end do
     end do
 
+    call print_main_loop_progress(step, bd%NSTEP)
+
 end do !end of the main loop
 
 !finalize the analyses
 call finalize()
+
+write(output_unit,f_line) ""
+write(output_unit,f_line) heading(wavy_pattern, "Interface calculation - DONE")
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!FUNCTIONS AND SUBROUTINES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 contains
