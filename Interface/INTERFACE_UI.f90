@@ -64,7 +64,6 @@ module INTERFACE_UI
     end subroutine print_help
     
     ! goes through program options and sets the program logic
-    ! TODO frame reader as an argument...
     subroutine evaluate_program_options(fr)
         implicit none
         class(frame_reader), allocatable, intent(inout) :: fr
