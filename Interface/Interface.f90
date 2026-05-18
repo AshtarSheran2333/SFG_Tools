@@ -74,16 +74,18 @@ do step = 1, bd%NSTEP, bd%INTERFACE_SKIP
         call get_group_density(gr)
     end do
 
+    call print_main_loop_progress(step, bd%NSTEP)
+
     !reads the skipped frames, evaluates densities of the skipped frames
-    do sk = 1, min(bd%INTERFACE_SKIP-1, step-bd%INTERFACE_SKIP-1)
+    do sk = 1, min(bd%INTERFACE_SKIP-1, bd%NSTEP-step)
         error_io_check(fr%read_frame(), "unable to read a frame") !reading frame
         
         do gr = 1, size(struct%groups)
             call get_group_density(gr)
         end do
-    end do
 
-    call print_main_loop_progress(step, bd%NSTEP)
+        call print_main_loop_progress(step+sk, bd%NSTEP)
+    end do
 
 end do !end of the main loop
 
