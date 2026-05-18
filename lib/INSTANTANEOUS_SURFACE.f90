@@ -3,7 +3,10 @@ module INSTANTANEOUS_SURFACE
     use FRAME_READERS, only: current_frame_type
     use SFG_UTILS, only: pbc_minimum_image, pbc_wrap, pi
     use BOXDATA, only: boxdata_type
+    use UTILS_ERROR
     implicit none
+    
+#include "utils_error_macros.h"
     
     type :: instantaneous_surface_type
         integer(int64), dimension(3) :: n_points !number of iterations through space
@@ -22,6 +25,7 @@ module INSTANTANEOUS_SURFACE
         procedure, public :: init_flat
         procedure, public :: calculate
         procedure, public :: get_distances !result (/bot distance, up distance/)
+        procedure, public :: get_center
         procedure, public :: write_grid_interface
         procedure, public :: open_bin_file
         procedure, public :: open_xyz_file
@@ -256,6 +260,18 @@ contains
         distances(1) = pos(3) - distances(1)
         distances(2) = distances(2) - pos(3)
     end function get_distances
+
+    function get_center(this) result(res)
+        class(instantaneous_surface_type), intent(in) :: this
+        real(real64) :: res
+
+        if( (size(this%bot_mesh) .eq. 0) .or. (size(this%up_mesh) .eq. 0)) then
+            error_stop("empty instantaneous surface - cannot get a center")
+        end if
+
+        res = sum(this%bot_mesh) + sum(this%up_mesh)
+        res = res / (size(this%bot_mesh) + size(this%up_mesh))
+    end function get_center
 
     function write_grid_interface(this, filename) result(res)
         class(instantaneous_surface_type), intent(inout) :: this
