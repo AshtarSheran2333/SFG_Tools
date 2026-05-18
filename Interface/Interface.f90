@@ -6,7 +6,7 @@ use FRAME_READERS
 use BOXDATA
 use INSTANTANEOUS_SURFACE
 use DENSITY
-use SFG_STRUCT
+use SFG_STRUCTURE
 
 implicit none
 
@@ -16,14 +16,16 @@ type(boxdata_type) ::                                       bd
 
 class(frame_reader), allocatable ::                         fr
 
-integer(int64) ::                                           step,&
-                                                            sk,&
-                                                            gr
-
 type(instantaneous_surface_type) ::                         instasurf
+
+type(sfg_structure_type) ::                                 struct
 
 type(density_profile_type), dimension(:), allocatable ::    up_group_densities,&
                                                             bot_group_densities
+
+integer(int64) ::                                           step,&
+                                                            sk,&
+                                                            gr
 
 !##########################################EVALUATE PROGRAM SWITCHES###########################################
 
@@ -56,7 +58,7 @@ error_io_check(instasurf%open_xyz_file(), "unable to open interface.xyz")
 error_io_check(instasurf%open_bin_file(), "unable to open interface.bin")
 
 !read the struct file, so we can evaluate densities of the groups...
-error_io_check(read_struct("struct.txt"), "unable to read structure file")
+error_io_check(struct%read_structure("struct.txt"), "unable to read structure file")
 
 !init densities
 call init_group_densities()
@@ -80,7 +82,7 @@ do step = 1, bd%NSTEP, bd%INTERFACE_SKIP
     end if
     
     !calculation of densities
-    do gr = 1, size(sfg_structure)
+    do gr = 1, size(struct%groups)
         call get_group_density(gr)
     end do
 
@@ -88,7 +90,7 @@ do step = 1, bd%NSTEP, bd%INTERFACE_SKIP
     do sk = 1, min(bd%INTERFACE_SKIP-1, step-bd%INTERFACE_SKIP-1)
         error_io_check(fr%read_frame(), "unable to read a frame") !reading frame
         
-        do gr = 1, size(sfg_structure)
+        do gr = 1, size(struct%groups)
             call get_group_density(gr)
         end do
     end do
@@ -112,13 +114,13 @@ subroutine init_group_densities()
     integer :: i
     
     if(allocated(up_group_densities)) deallocate(up_group_densities)
-    allocate(up_group_densities(size(sfg_structure)))
+    allocate(up_group_densities(size(struct%groups)))
     if(allocated(bot_group_densities)) deallocate(bot_group_densities)
-    allocate(bot_group_densities(size(sfg_structure)))
+    allocate(bot_group_densities(size(struct%groups)))
 
-    do i = 1, size(sfg_structure)
-        call up_group_densities(i)%init(bd%DENSITY_R_START, bd%DENSITY_R_END, bd%DENSITY_N_POINTS, bd%BOX_DIMENSIONS, "up_"//trim(adjustl(sfg_structure(i)%name)))
-        call bot_group_densities(i)%init(bd%DENSITY_R_START, bd%DENSITY_R_END, bd%DENSITY_N_POINTS, bd%BOX_DIMENSIONS, "bot_"//trim(adjustl(sfg_structure(i)%name)))
+    do i = 1, size(struct%groups)
+        call up_group_densities(i)%init(bd%DENSITY_R_START, bd%DENSITY_R_END, bd%DENSITY_N_POINTS, bd%BOX_DIMENSIONS, "up_"//trim(adjustl(struct%groups(i)%name)))
+        call bot_group_densities(i)%init(bd%DENSITY_R_START, bd%DENSITY_R_END, bd%DENSITY_N_POINTS, bd%BOX_DIMENSIONS, "bot_"//trim(adjustl(struct%groups(i)%name)))
     end do
 end subroutine init_group_densities
 
@@ -135,17 +137,17 @@ subroutine get_group_density(index)
                 bdp => bot_group_densities(index)%bins(:))
     !$omp parallel do &
     !$omp default(none) &
-    !$omp shared(bd, fr, instasurf, index, up_group_densities, bot_group_densities, sfg_structure) &
+    !$omp shared(bd, fr, instasurf, index, up_group_densities, bot_group_densities, struct) &
     !$omp private(i, j, com, is_ret) &
     !$omp reduction(+:udp, bdp)
-    do i = 1, size(sfg_structure(index)%sfg_units)
+    do i = 1, size(struct%groups(index)%sfg_units)
 
         !get "center of mass" (geometric average of all bases)
         com = 0
-        do j = 1, sfg_structure(index)%sfg_units(i)%n_unique_bases
-            com = com + pbc_wrap(fr%frame%positions(:,sfg_structure(index)%sfg_units(i)%unique_bases(j)), bd)
+        do j = 1, struct%groups(index)%sfg_units(i)%n_unique_bases
+            com = com + pbc_wrap(fr%frame%positions(:,struct%groups(index)%sfg_units(i)%unique_bases(j)), bd)
         end do
-        com = com / sfg_structure(index)%sfg_units(i)%n_unique_bases
+        com = com / struct%groups(index)%sfg_units(i)%n_unique_bases
 
         is_ret = instasurf%get_distances(com, bd)
         call up_group_densities(index)%add_point(is_ret(2), 1.0_real64)
@@ -162,7 +164,7 @@ subroutine finalize()
     implicit none
     integer :: gr
 
-    do gr = 1, size(sfg_structure)
+    do gr = 1, size(struct%groups)
         call up_group_densities(gr)%write_file()
         call bot_group_densities(gr)%write_file()
     end do
