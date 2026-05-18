@@ -27,7 +27,7 @@ integer(int64) ::                                           step,&
                                                             sk,&
                                                             gr
 
-!##########################################EVALUATE PROGRAM SWITCHES###########################################
+!############################ BEGIN INITIALIZATION #############################
 
 call evaluate_program_options()
 
@@ -52,8 +52,10 @@ call bd%read_boxdata()
 call instasurf%init(bd)
 error_io_check(instasurf%write_grid_interface(), "unable to write grid")
 
-!TODO open xyz only when vmdout
-error_io_check(instasurf%open_xyz_file(), "unable to open interface.xyz")
+if(ui_vmd_out) then
+    error_io_check(instasurf%open_xyz_file(), "unable to open interface.xyz")
+end if
+
 !TODO implement skip of the interface calculation - read from a file
 error_io_check(instasurf%open_bin_file(), "unable to open interface.bin")
 
@@ -66,7 +68,7 @@ call init_group_densities()
 write(output_unit,f_line) heading(wavy_pattern, "Interface calculation started")
 write(output_unit,f_line) ""
 
-!main loop
+!################################ MAIN LOOP ####################################
 do step = 1, bd%NSTEP, bd%INTERFACE_SKIP
 
     error_io_check(fr%read_frame(), "unable to read a frame") !reading frame
@@ -108,9 +110,10 @@ write(output_unit,f_line) heading(wavy_pattern, "Interface calculation - DONE")
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!FUNCTIONS AND SUBROUTINES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 contains
 
+!TODO those subroutines touch global variables... it should not be problem, but I would be careful about that!
+
 subroutine init_group_densities()
     implicit none
-    !TODO wrap SFG_struct into a type....
     integer :: i
     
     if(allocated(up_group_densities)) deallocate(up_group_densities)
@@ -126,7 +129,6 @@ end subroutine init_group_densities
 
 subroutine get_group_density(index)
     implicit none
-    !TODO wrap SFG_struct into a type, pass it as an argument
     integer, intent(in) :: index
     integer :: i, j
     real(real64), dimension(2) :: is_ret
@@ -164,6 +166,12 @@ subroutine finalize()
     implicit none
     integer :: gr
 
+    if(ui_vmd_out) then
+        call instasurf%close_bin_file()
+    end if
+
+    call instasurf%close_bin_file()
+    
     do gr = 1, size(struct%groups)
         call up_group_densities(gr)%write_file()
         call bot_group_densities(gr)%write_file()
