@@ -21,6 +21,8 @@ type(sfg_structure_type) ::                                 struct
 
 integer(int64) ::											step
 
+real(real64) ::                                             z_center
+
 !##########################################EVALUATE PROGRAM SWITCHES###########################################
 
 call evaluate_program_options(fr)
@@ -41,21 +43,19 @@ write(output_unit,f_line) ""
 !################################ MAIN LOOP ####################################
 do step = 1, bd%NSTEP
 
-	!TODO reading frame
-    error_io_check(fr%read_frame(), "unable to read a frame") !reading frame
+	!read frame
+    error_io_check(fr%read_frame(), "unable to read a frame")
 	
-	!TODO estimate center of the water slab
-	
-    if(mod(step, bd%INTERFACE_SKIP) == 1) then
+    if( (mod(step, bd%INTERFACE_SKIP) == 1) .or. (bd%INTERFACE_SKIP == 1) ) then
         !TODO better reporting - need to report step number
         error_io_check(instasurf%read_next(), "unable to read instantaneous surface")
+        !estimate center of the liquid slab - geometric average of the instantaneous surfaces
+        z_center = instasurf%get_center()
     end if
 	
-	!TODO loop over all chromophores in the system, assign it a layer
+	!TODO loop over all sfg_structure_groups, all of their sfg_units in the system, assign it a layer
     
-    !TODO write binder frame
     
-    !TODO print progress
     call print_main_loop_progress(step, bd%NSTEP)
 
 end do !end of the main loop
