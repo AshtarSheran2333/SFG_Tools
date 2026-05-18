@@ -14,10 +14,7 @@ implicit none
 
 type(boxdata_type) ::                                       bd
 
-class(frame_reader), pointer ::                             fr
-type(trr_frame_reader), allocatable, target ::              trr
-type(gro_frame_reader), allocatable, target ::              gro
-type(xyz_frame_reader), allocatable, target ::              xyz
+class(frame_reader), allocatable ::                         fr
 
 integer(int64) ::                                           step,&
                                                             sk,&
@@ -35,16 +32,13 @@ call evaluate_program_options()
 !allocate the correct frame reader todo can be moved to UI_CORE or something like that...
 select case(ui_filetype)
 case (ui_filetype_gro)
-    allocate(gro)
-    fr => gro
+    allocate(gro_frame_reader :: fr)
     error_io_check(fr%open_file(ui_filename1), "unable to open "//ui_filename1)
 case (ui_filetype_trr)
-    allocate(trr)
-    fr => trr
+    allocate(trr_frame_reader :: fr)
     error_io_check(fr%open_file(ui_filename1, ui_filename2), "unable to open files "//ui_filename1//" "//ui_filename2)
 case (ui_filetype_xyz)
-    allocate(xyz)
-    fr => xyz
+    allocate(xyz_frame_reader :: fr)
     error_io_check(fr%open_file(ui_filename1, ui_filename2), "unable to open files "//ui_filename1//" "//ui_filename2)
 case default
     error_stop("unknown input filetype")
