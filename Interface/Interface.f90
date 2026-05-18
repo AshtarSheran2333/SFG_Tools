@@ -29,22 +29,8 @@ integer(int64) ::                                           step,&
 
 !############################ BEGIN INITIALIZATION #############################
 
-call evaluate_program_options()
-
-!allocate the correct frame reader todo can be moved to UI_CORE or something like that...
-select case(ui_filetype)
-case (ui_filetype_gro)
-    allocate(gro_frame_reader :: fr)
-    error_io_check(fr%open_file(ui_filename1), "unable to open "//ui_filename1)
-case (ui_filetype_trr)
-    allocate(trr_frame_reader :: fr)
-    error_io_check(fr%open_file(ui_filename1, ui_filename2), "unable to open files "//ui_filename1//" "//ui_filename2)
-case (ui_filetype_xyz)
-    allocate(xyz_frame_reader :: fr)
-    error_io_check(fr%open_file(ui_filename1, ui_filename2), "unable to open files "//ui_filename1//" "//ui_filename2)
-case default
-    error_stop("unknown input filetype")
-end select
+!evaluate program options and open trajectory...
+call evaluate_program_options(fr)
 
 call bd%read_boxdata()
 

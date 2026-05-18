@@ -12,6 +12,7 @@ module INTERFACE_UI
     use SWITCHES
     use UTILS_ERROR
     use PRETTY_PRINT
+    use FRAME_READERS
     implicit none
     
 #include "utils_error_macros.h"
@@ -63,9 +64,10 @@ module INTERFACE_UI
     end subroutine print_help
     
     ! goes through program options and sets the program logic
-    ! frame reader as an argument...
-    subroutine evaluate_program_options()
+    ! TODO frame reader as an argument...
+    subroutine evaluate_program_options(fr)
         implicit none
+        class(frame_reader), allocatable, intent(inout) :: fr
         character(len=256) :: op, arg, arg1
         character :: option
         integer(kind=int64) :: i
@@ -100,6 +102,8 @@ module INTERFACE_UI
                         write(output_unit,f_line) ""
                         ui_filetype = ui_filetype_gro
                         ui_filename1 = trim(adjustl(arg))
+                        allocate(gro_frame_reader :: fr)
+                        error_io_check(fr%open_file(ui_filename1), "unable to open "//ui_filename1)
                     ! INPUT XYZ
                     else if(index(arg, '.xyz') .ne. 0) then
                         call get_switch_string(i, op, arg1)
@@ -110,6 +114,8 @@ module INTERFACE_UI
                             ui_filetype = ui_filetype_xyz
                             ui_filename1 = trim(adjustl(arg))
                             ui_filename2 = trim(adjustl(arg1))
+                            allocate(xyz_frame_reader :: fr)
+                            error_io_check(fr%open_file(ui_filename1, ui_filename2), "unable to open files "//ui_filename1//" "//ui_filename2)
                         else
                             !TODO just positions are sufficient
                             error_stop("program needs positions and velocities .xyz files")
@@ -124,6 +130,8 @@ module INTERFACE_UI
                             ui_filetype = ui_filetype_trr
                             ui_filename1 = trim(adjustl(arg))
                             ui_filename2 = trim(adjustl(arg1))
+                            allocate(trr_frame_reader :: fr)
+                            error_io_check(fr%open_file(ui_filename1, ui_filename2), "unable to open files "//ui_filename1//" "//ui_filename2)
                         else
                             error_stop("program needs .trr and .gro file")
                         end if
