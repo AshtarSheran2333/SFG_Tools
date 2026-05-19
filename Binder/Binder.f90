@@ -4,6 +4,7 @@ use BINDER_UI
 use FRAME_READERS
 use BOXDATA
 use INSTANTANEOUS_SURFACE
+use BINDER_FILE
 use SFG_STRUCTURE
 !TODO make a binder module - responsible for holding the binder, writing, reading...
 
@@ -19,7 +20,11 @@ type(instantaneous_surface_type) ::                         instasurf
 
 type(sfg_structure_type) ::                                 struct
 
+type(binder_type) ::                                        binder
+
 integer(int64) ::											step
+
+integer ::  res
 
 real(real64) ::                                             z_center
 
@@ -36,6 +41,7 @@ error_io_check(instasurf%open_bin_file(read_only = .true., must_exist = .true., 
 error_io_check(struct%read_structure("struct.txt"), "unable to read structure file")
 
 !TODO INIT BINDER
+error_io_check(binder%init(struct), "unable to init binder")
 
 write(output_unit,f_line) heading(wavy_pattern, "Binder calculation started")
 write(output_unit,f_line) ""
@@ -54,8 +60,10 @@ do step = 1, bd%NSTEP
     end if
 	
 	!TODO loop over all sfg_structure_groups, all of their sfg_units in the system, assign it a layer
+    error_io_check(binder%fill_binder(fr, struct, instasurf, bd, z_center), "binder assignment error")
     
-    
+    !TODO write binder frame
+
     call print_main_loop_progress(step, bd%NSTEP)
 
 end do !end of the main loop

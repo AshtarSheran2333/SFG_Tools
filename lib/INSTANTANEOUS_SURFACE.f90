@@ -216,7 +216,7 @@ contains
 
     function get_distances(this, point, bd) result(distances)
         implicit none
-        class(instantaneous_surface_type), intent(inout) :: this
+        class(instantaneous_surface_type), intent(in) :: this
         real(real64), dimension(3), intent(in) :: point
         type(boxdata_type), intent(in) :: bd
         real(real64), dimension(3) :: pos
