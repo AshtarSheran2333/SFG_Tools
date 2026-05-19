@@ -32,6 +32,7 @@ module BINDER_FILE
     !verify (against struct)
 
         procedure, public :: open_file
+        procedure, public :: close_file
         procedure, public :: init
         procedure, public :: write_frame
         procedure, public :: read_frame
@@ -149,6 +150,16 @@ module BINDER_FILE
                 iostat = res)
     end function
 
+    function close_file(this) result(res)
+        class(binder_type), intent(inout) :: this
+        integer :: res
+        logical :: is_open
+        
+        inquire(this%file_unit, opened = is_open)
+        if(is_open) close(this%file_unit)
+        res = 0
+    end function
+
     function init(this, struct) result(res)
         class(binder_type) :: this
         class(sfg_structure_type), intent(in) :: struct
@@ -212,10 +223,86 @@ module BINDER_FILE
         end do
 
     end function
-
+    
+    !TODO expecting that the binder will be initiated from struct...
+    !TODO make the binder initialize just from the file...
+    !result -1 - file not open
+    !result -2 - unexpected format
+    !result < 0 - IO-error
+    !result 0 - OK
     function read_frame(this) result(res)
         class(binder_type) :: this
         integer :: res
+        integer(int64) :: magic
+        integer(int32) :: i32, groups, group_size, i, n_nibbles, j
+        integer(int8) :: i8
+        character(len=32) :: groupname
+        logical :: is_open, is_odd
+        
+        inquire(this%file_unit, opened = is_open)
+        res = -1; if(.not. is_open) return
+        
+        read(this%file_unit, iostat = res) magic !read magic
+        if(res .ne. 0) return
+        if(magic .ne. binder_magic) then
+            res = -2
+            return
+        end if
+
+        read(this%file_unit, iostat = res) i32 !read version
+        if(res .ne. 0) return
+        if(i32 .ne. binder_version) then
+            res = -2
+            return
+        end if
+
+        read(this%file_unit, iostat = res) groups !read n_groups
+        if(res .ne. 0) return
+        if( (groups .ne. size(this%binder_groups)) .or. &
+            (groups .ne. size(this%group_names)) ) then
+            res = -2
+            return
+        end if
+
+        do i = 1, groups
+            read(this%file_unit, iostat = res) i32 !read group_size
+            if(res .ne. 0) return
+            if(i32 .ne. size(this%binder_groups(i)%layers)) then
+                res = -2
+                return
+            end if
+            
+            read(this%file_unit, iostat = res) groupname !read group_name
+            if(res .ne. 0) return
+            if(groupname .ne. this%group_names(i)) then
+                res = -2
+                return
+            end if
+        end do
+
+        !header OK
+
+        !TODO THIS IS NOT OK... I AM TIRED
+        do i = 1, groups
+            n_nibbles = ceiling(real(size(this%binder_groups(i)%layers)) / 2.0) 
+            is_odd = .false.
+            if(mod(size(this%binder_groups(i)%layers), 2) == 1) is_odd = .true.
+            
+            do j = 1, n_nibbles
+                read(this%file_unit, iostat = res) i8 !read nibbles
+                !read lower nibble
+                this%binder_groups(i)%layers(j*2-1) = OR(0, AND(i8, Z'F'))   
+                if(j == n_nibbles .and. is_odd) exit
+                !read upper nibble
+                this%binder_groups(i)%layers(j*2) = OR(0, SHIFTR(i8, 4))
+            end do
+        end do
+        print*, "ok"
+
+            
+        
+        
+        !if(.not. allocated(this%binder_groups))
     end function
 
     function verify_struct(this, struct) result(res)
