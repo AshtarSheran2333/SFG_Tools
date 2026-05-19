@@ -7,8 +7,8 @@ module BINDER_FILE
     use SFG_UTILS
     implicit none
 
-    integer(int64), parameter, private :: magic = Z'5245444E49424746' !BIND_SFG
-    integer(int32), parameter, private :: version = 1
+    integer(int64), parameter, private :: binder_magic = Z'4746535F444E4942' !BIND_SFG
+    integer(int32), parameter, private :: binder_version = 1
     
     integer(int8), dimension(8), parameter :: bLflags = (/Z'0', Z'1', Z'2', Z'3', Z'4', Z'5', Z'6', Z'7'/),&
                                             uLflags = (/Z'8', Z'9', Z'A', Z'B', Z'C', Z'D', Z'E', Z'F'/)
@@ -20,6 +20,8 @@ module BINDER_FILE
     type binder_type
         type(group_binder_type), dimension(:), allocatable :: binder_groups
         character(len=32), dimension(:), allocatable :: group_names
+
+        integer, private :: file_unit
     
     contains
 
@@ -28,12 +30,6 @@ module BINDER_FILE
     !write
     !read
     !verify (against struct)
-
-    !binder frame:
-    !header : magic, version, n_groups, 
-    !data (groupname, n_units, binder[...])
-    !data (groupname, n_units, binder[...])
-    !data (groupname, n_units, binder[...])
 
         procedure, public :: open_file
         procedure, public :: init
@@ -115,9 +111,42 @@ module BINDER_FILE
     
     end function
     
-    function open_file(this) result(res)
-        class(binder_type) :: this
+    function open_file(this, read_only, must_exist, name) result(res)
+        class(binder_type), intent(inout) :: this
+        character(*), intent(in), optional :: name
+        logical, intent(in), optional :: read_only, must_exist
+        character(128) :: file_name
         integer :: res
+        logical :: is_open
+        character(20) :: act, stat
+        
+        inquire(this%file_unit, opened = is_open)
+        if(is_open) close(this%file_unit)
+        
+        file_name = "binder.bin"
+        stat = 'UNKNOWN'
+        act = 'READWRITE'
+        
+        if(present(name)) then
+            file_name = trim(adjustl(name))
+        end if
+        
+        if(present(must_exist)) then
+            if(must_exist) stat = 'OLD'
+        end if
+
+        if(present(read_only)) then
+            if(read_only) act = 'READ'
+        end if
+            
+        open(newunit = this%file_unit, &
+                file = trim(adjustl(file_name)), &
+                status = stat, &
+                action = act, &
+                form = "unformatted", &
+                access = "stream", &
+                convert = "little_endian", &
+                iostat = res)
     end function
 
     function init(this, struct) result(res)
@@ -141,9 +170,47 @@ module BINDER_FILE
         res = 0 !allways return 0 not expectiong fail in the allocate - which is naive I guess
     end function
 
+    !binder frame:
+    !header : magic(int64), version(int32), n_groups(int32), 
+    !(n_units(int32), groupname(32))[n_groups]
+    !data(each nibble = 1 record - same order)[n_groups] - in case of odd records, append 0 nibble
     function write_frame(this) result(res)
         class(binder_type) :: this
-        integer :: res
+        logical :: is_open
+        integer :: res, group, unit
+        integer(int8) :: chunk
+        
+        inquire(this%file_unit, opened = is_open)
+        res = -1; if(.not. is_open) return
+
+        res = 0
+
+        !write header
+        if(res == 0) write(this%file_unit, iostat = res) binder_magic
+        if(res == 0) write(this%file_unit, iostat = res) binder_version
+        if(res == 0) write(this%file_unit, iostat = res) int(size(this%binder_groups),int32)
+        do group = 1, size(this%binder_groups)
+            if(res == 0) write(this%file_unit, iostat = res) int(size(this%binder_groups(group)%layers),int32)
+            if(res == 0) write(this%file_unit, iostat = res) this%group_names(group)
+        end do
+        
+        !write data
+        do group = 1, size(this%binder_groups)
+            do unit = 1, size(this%binder_groups(group)%layers)
+                if(mod(unit,2) == 1) then
+                    chunk = 0
+                    chunk = SHIFTL(this%binder_groups(group)%layers(unit),4)
+                else
+                    chunk = OR(chunk, AND(this%binder_groups(group)%layers(unit), Z'F'))
+                    if(res == 0) write(this%file_unit, iostat = res) chunk
+                end if
+            end do
+            !in case of odd number of units, write the last one - just lowest nibble
+            if(mod(unit,2) == 0) then
+                if(res == 0) write(this%file_unit, iostat = res) chunk
+            end if
+        end do
+
     end function
 
     function read_frame(this) result(res)
