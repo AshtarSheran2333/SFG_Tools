@@ -33,7 +33,6 @@ module BINDER_UI
         implicit none
 
         !TODO might have to be updated
-        write(output_unit,f_line)   ""
         write(output_unit,f_line)   heading(flat_pattern,"Help dialog of Binder")
         write(output_unit,f_line)   ""                          
         write(output_unit,f_line)   heading(flat_pattern,"Mandatory options")
