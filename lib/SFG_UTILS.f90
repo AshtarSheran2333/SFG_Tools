@@ -43,17 +43,14 @@ module SFG_UTILS
 
     end function pbc_wrap
 
-!! cross_product(arg1, arg2)
-!! arg1, arg2 - 3d array vector
-!! returns cross product of arg1 and arg2
-!function cross_product(a,b)
-!	real*8, dimension(3) :: cross_product
-!	real*8, dimension(3), intent(IN) :: a, b
-!
-!	cross_product(1) = a(2) * b(3) - a(3) * b(2)
-!	cross_product(2) = a(3) * b(1) - a(1) * b(3)
-!	cross_product(3) = a(1) * b(2) - a(2) * b(1)
-!end function cross_product
+function cross_product(a,b)
+	real(real64), dimension(3) :: cross_product
+	real(real64), dimension(3), intent(IN) :: a, b
+
+	cross_product(1) = a(2) * b(3) - a(3) * b(2)
+	cross_product(2) = a(3) * b(1) - a(1) * b(3)
+	cross_product(3) = a(1) * b(2) - a(2) * b(1)
+end function cross_product
 
 !subroutine fourier integral...
 
