@@ -42,6 +42,7 @@ error_io_check(struct%read_structure("struct.txt"), "unable to read structure fi
 
 !TODO INIT BINDER
 error_io_check(binder%init(struct), "unable to init binder")
+error_io_check(binder%open_file(), "unable to open binder file")
 
 write(output_unit,f_line) heading(wavy_pattern, "Binder calculation started")
 write(output_unit,f_line) ""
@@ -49,31 +50,40 @@ write(output_unit,f_line) ""
 !################################ MAIN LOOP ####################################
 do step = 1, bd%NSTEP
 
-	!read frame
+    !read frame
     error_io_check(fr%read_frame(), "unable to read a frame")
-	
+    
     if( (mod(step, bd%INTERFACE_SKIP) == 1) .or. (bd%INTERFACE_SKIP == 1) ) then
         !TODO better reporting - need to report step number
         error_io_check(instasurf%read_next(), "unable to read instantaneous surface")
         !estimate center of the liquid slab - geometric average of the instantaneous surfaces
         z_center = instasurf%get_center()
     end if
-	
-	!TODO loop over all sfg_structure_groups, all of their sfg_units in the system, assign it a layer
+    
+    !The binder is initialized by the structure, obrain the whole binder for all the groups specified by the structure
     error_io_check(binder%fill_binder(fr, struct, instasurf, bd, z_center), "binder assignment error")
     
-    !TODO write binder frame
+    !write binder frame
+    error_io_check(binder%write_frame(), "unable to write binder frame")
 
     call print_main_loop_progress(step, bd%NSTEP)
 
 end do !end of the main loop
 
-!TODO finalize() cleanup
-call instasurf%close_bin_file()
+!cleanup
+call finalize()
 
 write(output_unit,f_line) ""
 write(output_unit,f_line) heading(wavy_pattern, "Binder calculation - DONE")
 
 contains
+
+subroutine finalize()
+    implicit none
+    
+    call instasurf%close_bin_file()
+    error_io_check(binder%close_file(), "unable to close binder frame")
+    
+end subroutine finalize
 
 end program SFG_BINDER

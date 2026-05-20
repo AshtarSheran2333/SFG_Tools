@@ -226,6 +226,7 @@ module BINDER_FILE
     
     !TODO expecting that the binder will be initiated from struct...
     !TODO make the binder initialize just from the file...
+    !TODO this simply can work better, but for now, it makes the job...
     !result -1 - file not open
     !result -2 - unexpected format
     !result < 0 - IO-error
@@ -234,7 +235,7 @@ module BINDER_FILE
         class(binder_type) :: this
         integer :: res
         integer(int64) :: magic
-        integer(int32) :: i32, groups, group_size, i, n_nibbles, j
+        integer(int32) :: i32, groups, group_size, i, n_bytes, j
         integer(int8) :: i8
         character(len=32) :: groupname
         logical :: is_open, is_odd
@@ -282,25 +283,22 @@ module BINDER_FILE
 
         !header OK
 
-        !TODO THIS IS NOT OK... I AM TIRED
+        !read the binder values
         do i = 1, groups
-            n_nibbles = ceiling(real(size(this%binder_groups(i)%layers)) / 2.0) 
+            n_bytes = ceiling(real(size(this%binder_groups(i)%layers)) / 2.0) 
             is_odd = .false.
             if(mod(size(this%binder_groups(i)%layers), 2) == 1) is_odd = .true.
             
-            do j = 1, n_nibbles
+            do j = 1, n_bytes
                 read(this%file_unit, iostat = res) i8 !read nibbles
+                if(res .ne. 0) return
                 !read lower nibble
-                this%binder_groups(i)%layers(j*2-1) = OR(0, AND(i8, Z'F'))   
-                if(j == n_nibbles .and. is_odd) exit
+                this%binder_groups(i)%layers(j*2-1) = OR(0, SHIFTR(i8, 4))
+                if(j == n_bytes .and. is_odd) exit
                 !read upper nibble
-                this%binder_groups(i)%layers(j*2) = OR(0, SHIFTR(i8, 4))
+                this%binder_groups(i)%layers(j*2) = OR(0, AND(i8, Z'0F'))
             end do
         end do
-        print*, "ok"
-
-            
-        
         
         !if(.not. allocated(this%binder_groups))
     end function
