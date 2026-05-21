@@ -20,6 +20,8 @@ module SFG_UTILS
                                 debye_to_ea = 0.208,& ! Debye to eA
                                 e_to_c = 1.6 ! 1e to C
 
+    complex(real64), parameter :: iunit = (0.0d0,1.0d0) 
+
     contains
 
     function pbc_minimum_image(diff, bd) result(image)
@@ -43,16 +45,61 @@ module SFG_UTILS
 
     end function pbc_wrap
 
+    
+!TODO can be made an operator...
 function cross_product(a,b)
-	real(real64), dimension(3) :: cross_product
-	real(real64), dimension(3), intent(IN) :: a, b
+    real(real64), dimension(3) :: cross_product
+    real(real64), dimension(3), intent(IN) :: a, b
 
-	cross_product(1) = a(2) * b(3) - a(3) * b(2)
-	cross_product(2) = a(3) * b(1) - a(1) * b(3)
-	cross_product(3) = a(1) * b(2) - a(2) * b(1)
+    cross_product(1) = a(2) * b(3) - a(3) * b(2)
+    cross_product(2) = a(3) * b(1) - a(1) * b(3)
+    cross_product(3) = a(1) * b(2) - a(2) * b(1)
 end function cross_product
 
-!subroutine fourier integral...
+!dt is in fs
+!omega is in cm-1
+!we need to use Si units, because of unit conversions
+subroutine Fourier_transform(c_t, dt, domega, omega_max, c_omega)
+        implicit none
+        real(real64), dimension(:), intent(in) :: c_t
+        real(real64), intent(in) :: dt, domega, omega_max
+        complex(real64), dimension(:), allocatable, intent(inout) :: c_omega
+
+        integer :: n, j, n_omega, nt
+        real(real64) :: t, omega, domega_si, dt_si, weight
+
+        nt = size(c_t)
+        n_omega = int(omega_max / domega) + 1
+
+        if(allocated(c_omega)) deallocate(c_omega)
+        allocate(c_omega(n_omega))
+
+        c_omega = (0.0_real64, 0.0_real64)
+        domega_si = 2.0_real64 * pi * c * domega ! s^-1
+        dt_si = dt * 1e-15_real64 ! s
+
+        !TODO filter
+
+        !TODO can make OMP DO...
+        do j = 1, n_omega
+
+            omega = (j-1) * domega_si
+
+            do n = 1, nt
+
+                t = (n-1) * dt_si
+                weight = 1.0_real64
+                if(n == 1 .or. n == nt) weight = 0.5_real64
+
+                c_omega(j) = c_omega(j) + weight * c_t(n) * exp(-iunit * omega * t)
+
+            end do
+
+            c_omega(j) = c_omega(j) * dt_si
+
+        end do
+
+    end subroutine Fourier_transform
 
 !function s_to_HHHMMSS(seconds)
 !	character(14) :: s_to_HHHMMSS
