@@ -59,14 +59,16 @@ end function cross_product
 !dt is in fs
 !omega is in cm-1
 !we need to use Si units, because of unit conversions
-subroutine Fourier_transform(c_t, dt, domega, omega_max, c_omega)
+subroutine Fourier_transform(c_t, dt, domega, omega_max, c_omega, filter)
         implicit none
         real(real64), dimension(:), intent(in) :: c_t
         real(real64), intent(in) :: dt, domega, omega_max
         complex(real64), dimension(:), allocatable, intent(inout) :: c_omega
+        real(real64), intent(in), optional :: filter
+
 
         integer :: n, j, n_omega, nt
-        real(real64) :: t, omega, domega_si, dt_si, weight
+        real(real64) :: t, omega, domega_si, dt_si, weight, f, fp
 
         nt = size(c_t)
         n_omega = int(omega_max / domega) + 1
@@ -77,8 +79,10 @@ subroutine Fourier_transform(c_t, dt, domega, omega_max, c_omega)
         c_omega = (0.0_real64, 0.0_real64)
         domega_si = 2.0_real64 * pi * c * domega ! s^-1
         dt_si = dt * 1e-15_real64 ! s
-
-        !TODO filter
+        if(present(filter)) then
+            fp = filter * 1e-12 !s
+        end if
+        f = 1.0_real64
 
         !TODO can make OMP DO...
         do j = 1, n_omega
@@ -88,10 +92,14 @@ subroutine Fourier_transform(c_t, dt, domega, omega_max, c_omega)
             do n = 1, nt
 
                 t = (n-1) * dt_si
+                if(present(filter)) then
+                    f = exp( - (t*t)/(fp*fp) )
+                end if
+
                 weight = 1.0_real64
                 if(n == 1 .or. n == nt) weight = 0.5_real64
 
-                c_omega(j) = c_omega(j) + weight * c_t(n) * exp(-iunit * omega * t)
+                c_omega(j) = c_omega(j) + weight * f * c_t(n) * exp(-iunit * omega * t)
 
             end do
 
