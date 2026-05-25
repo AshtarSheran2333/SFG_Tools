@@ -15,7 +15,7 @@ module DXDRZ_DB
         !members kept public to avoid copies... (do not write into them)
         type(dAdrz_type), dimension(:), allocatable :: dAdrz_record
         type(dMdrz_type), dimension(:), allocatable :: dMdrz_record
-        integer(int32), private :: count
+        integer(int32) :: count
         
     contains
     

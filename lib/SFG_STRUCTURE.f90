@@ -1,5 +1,9 @@
 module SFG_STRUCTURE
     use, intrinsic :: iso_fortran_env
+    use FRAME_READERS, only: current_frame_type
+    use DXDRZ_DB, only: dXdrz_db_type
+    use BOXDATA, only: boxdata_type
+    use SFG_UTILS, only: pbc_minimum_image, cross_product
     use UTILS_ERROR
 
 #include "utils_error_macros.h"
@@ -71,6 +75,7 @@ module SFG_STRUCTURE
     
         procedure, public :: fill_unique_bases
         procedure, public :: append_chromophore
+        procedure, public :: get_AM
     end type sfg_unit_type
     
     !----------------------------the input-------------------------------------
@@ -399,6 +404,108 @@ module SFG_STRUCTURE
         call move_alloc(from=temp_chromophores, to=this%chromophores)
     end subroutine append_chromophore
     
+    !gets A and M of SFG unit
+    function get_AM(this, frame, param_db, boxdata) result(res)
+        implicit none
+        class(sfg_unit_type), intent(in) :: this
+        type(current_frame_type), intent(in) :: frame
+        type(dXdrz_db_type), intent(in) :: param_db
+        type(boxdata_type), intent(in) :: boxdata
+        real(real64), dimension(2) :: res
+
+        integer :: n, ref, i, j
+        real(real64), dimension(3) :: u, v, diff!base-actor, base-reference
+        real(real64), dimension(3,3) :: D
+        real(real64) :: r, scale, A, M, vz
+
+        res = 0
+        A = 0
+        M = 0
+        
+        !loop over the chromophores
+        do n = 1, size(this%chromophores)    
+            if( (this%chromophores(n)%parameters_id > param_db%count) .or. &
+                (this%chromophores(n)%parameters_id > param_db%count) ) &
+                error_stop("invalid parameters_id") !TODO this should be checked somewhere else...
+
+            !CONSTRUCT D MATRIX
+            !solve actor - base vector
+            u = frame%positions(:,this%chromophores(n)%actor) - frame%positions(:,this%chromophores(n)%base)
+            u = pbc_minimum_image(u, boxdata)
+            r = norm2(u)
+            ! z component
+            D(:,3) = u / r
+
+            !solve base-reference vector
+            scale = size(this%chromophores(n)%references) 
+            if(scale == 0) then
+                !no base -> use -Z
+                v = (/0.0, 0.0, -1.0/)
+            else
+                !average the bases
+                v = 0
+                do ref = 1, scale
+                    diff = frame%positions(:,this%chromophores(n)%references(ref)) - frame%positions(:,this%chromophores(n)%base)
+                    diff = pbc_minimum_image(diff, boxdata)
+                    v = v + diff
+                end do
+                v = v / scale
+            end if
+
+            ! x component
+            scale = dot_product(v,D(:,3))
+            D(:,1) = scale*D(:,3)-v
+            r = norm2(D(:,1))
+            if(r .ne. 0) then 
+                !everything OK
+                D(:,1) = D(:,1) / r
+            else
+                !troubles with division by 0
+                if((D(1,3) == 0) .and. (D(2,3) == 0)) then
+                    ! be careful, in this case we have no clue about the direction
+                    ! leads to division by zero
+                    ! X axis if lab Z == Z else -X axis
+                    D(:,1) = (/D(3,3),0d0,0d0/)
+                else
+                    ! if actor base reference angle is 180deg
+                    ! chose X perpendicular to Z
+                    D(:,1) = (/D(2,3),-D(1,3),0d0/)
+                    r = norm2(D(:,1))
+                    D(:,1) = D(:,1) / r
+                end if
+            end if
+            
+            ! y component
+            D(:,2) = cross_product(D(:,3),D(:,1))
+            !TODO end construct D matrix subroutine
+
+            !get vz
+            diff = frame%velocities(:,this%chromophores(n)%actor) - frame%velocities(:,this%chromophores(n)%base)
+            vz = dot_product(diff,D(:,3))
+
+            !TODO calculate the A M
+            !M_R
+            do i=1,3     ! do on x,y,z
+                associate( dMdrz => param_db%dMdrz_record(this%chromophores(n)%parameters_id)%elements(i) )
+                M = M + ( D(boxdata%R,i) * dMdrz * vz )
+                end associate
+            end do
+        
+            !A_PQ
+            do i=1,3     ! do on x,y,z
+                do j=1,3     ! do on x,y,z
+                    associate( dAdrz => param_db%dAdrz_record(this%chromophores(n)%parameters_id)%elements(i,j) )
+                    A = A +( D(boxdata%P,i) * dAdrz * D(boxdata%Q,j) * vz )
+                    end associate
+                end do
+            end do
+
+        end do
+
+        res = (/A, M/)
+
+    end function get_AM
+
     function read_other(this, sfg_unit) result(res)
         implicit none
         class(sfg_structure_type), intent(inout) :: this
