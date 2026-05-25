@@ -6,6 +6,7 @@ use CORR_UI
 use FRAME_READERS
 use BOXDATA
 use SFG_STRUCTURE
+use DXDRZ_DB
 use BINDER_FILE
 
 implicit none
@@ -17,6 +18,8 @@ type(boxdata_type) ::                                       bd
 class(frame_reader), allocatable ::                         fr
 
 type(sfg_structure_type) ::                                 struct
+
+type(dXdrz_db_type) ::                                      parameters
 
 type(binder_type) ::                                        binder
 
@@ -58,6 +61,10 @@ call bd%read_boxdata()
 
 !read structure
 error_io_check(struct%read_structure("struct.txt"), "unable to read structure file")
+
+!parameters db
+call parameters%init()
+error_io_check(parameters%read_from_file("parameters.dat"), "error reading parameters file")
 
 !init binder
 error_io_check(binder%init(struct), "unable to init binder")
