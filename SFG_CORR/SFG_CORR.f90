@@ -8,6 +8,7 @@ use BOXDATA
 use SFG_STRUCTURE
 use DXDRZ_DB
 use BINDER_FILE
+use SFG_CORRELATION
 
 implicit none
 
@@ -23,38 +24,17 @@ type(dXdrz_db_type) ::                                      parameters
 
 type(binder_type) ::                                        binder
 
+type(correlation_function_type) ::                          cf
+
 integer(int64) ::											step
 
-!TODO to be a module - something like parameters database...
-!!------------------------------------------------------------------------------
-!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!>                                                                           <!
-!!> values from Remi Khatib article for : dM(x,y,z)/dRz and dA(x,y,z)/dRz     <!
-!!> for water https://doi.org/10.1038/srep24287                               <!
-!!> where x,y,z are coordinates in the oh_ref                                 <!
-!!>                                                                           <!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!dMdRz(1)   =-0.1500000     ! = dM(x)/dRz
-!dMdRz(2)   =-0.d0          ! = dM(y)/dRz
-!dMdRz(3)   = 2.1000000     ! = dM(z)/dRz
-!!------------------------------------------------------------------------------
-!dAdRz(1,1) = 0.4000000     ! = dA(x,x)/dRz
-!dAdRz(2,2) = 0.5300000     ! = dA(y,y)/dRz
-!dAdRz(3,3) = 1.5600000     ! = dA(z,z)/dRz
-!
-!dAdRz(1,2) = 0.d0          ! = dA(x,y)/dRz
-!dAdRz(2,1) = dAdRz(1,2)    ! = dA(y,x)/dRz
-!
-!dAdRz(1,3) = 0.0200000     ! = dA(x,z)/dRz
-!dAdRz(3,1) = dAdRz(1,3)    ! = dA(z,x)/dRz
-!
-!dAdRz(2,3) = 0.d0          ! = dA(y,z)/dRz
-!dAdRz(3,2) = dAdRz(2,3)    ! = dA(z,y)/dRz
-!!------------------------------------------------------------------------------
-
+integer(int8), dimension(:), allocatable ::                 layer_selection
 !evaluate program options
 call evaluate_program_options(fr)
+allocate(layer_selection(3))
+layer_selection(1) = 0
+layer_selection(2) = 1
+layer_selection(3) = 2
 
 !read BOXDATA
 call bd%read_boxdata()
@@ -70,6 +50,9 @@ error_io_check(parameters%read_from_file("parameters.dat"), "error reading param
 error_io_check(binder%init(struct), "unable to init binder")
 error_io_check(binder%open_file(), "unable to open binder file")
 
+!CF
+call cf%init(struct%groups(1), bd)
+
 !!TODO print recap of the parameters - what groups has been selected... ???
 !call recap()
 
@@ -84,13 +67,7 @@ do step = 1, bd%NSTEP
     !TODO read binder frame / skip binder frame
     error_io_check(binder%read_frame(), "unable to read binder frame")
 
-    !TODO calculate A M from the frame, save it where it belongs (depends on the user selection from the struct and program options
-        !TODO need something that works as std::vector
-        !TODO some array ring buffer module
-    !TODO do the correlation function step
-        !a correlation function buffer
-        !a ringbuffer of A M (corrlen)
-        
+    call cf%calculate_step(fr%frame, struct%groups(1), binder%binder_groups(1), parameters, layer_selection, bd) 
 
     !print progress
     call print_main_loop_progress(step, bd%NSTEP)
@@ -98,6 +75,7 @@ do step = 1, bd%NSTEP
     !TODO some way to print backup - sometimes take the correlation data, FFT -> get the convergence series
 end do !end of the main loop
 
+print*, "DONE"
 !TODO finalize
 
 !TODO sort everything below, get rid of it
