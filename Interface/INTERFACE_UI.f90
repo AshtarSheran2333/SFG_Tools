@@ -35,18 +35,18 @@ module INTERFACE_UI
         implicit none
 
         !TODO might have to be updated
-        write(output_unit,f_line)	heading(flat_pattern, "Help dialog of Interface program")
-        write(output_unit,f_line)	""                          
-        write(output_unit,f_line)	heading(flat_pattern, "Mandatory options")
-        write(output_unit,f_line)	""
-        write(output_unit,f_line)	"-I(input) <file1> *<file2>"
-        write(output_unit,f_1tab)		"Specifies the input files. The options are:"
-        write(output_unit,f_2tab)			"*.xyz (positions), *.xyz (velocities)"
-        write(output_unit,f_2tab)			"*.gro (positions+velocities)"
-        write(output_unit,f_2tab)			"*.trr, *.gro (one frame - can be only positions)"
-        write(output_unit,f_line)	""
-        write(output_unit,f_line)	heading(flat_pattern, "Optional useful options")
-        write(output_unit,f_line)	""
+        write(output_unit,f_line)   heading(flat_pattern, "Help dialog of Interface program")
+        write(output_unit,f_line)   ""                          
+        write(output_unit,f_line)   heading(flat_pattern, "Mandatory options")
+        write(output_unit,f_line)   ""
+        write(output_unit,f_line)   "-I(input) <file1> *<file2>"
+        write(output_unit,f_1tab)       "Specifies the input files. The options are:"
+        write(output_unit,f_2tab)           "*.xyz (positions), *.xyz (velocities)"
+        write(output_unit,f_2tab)           "*.gro (positions+velocities)"
+        write(output_unit,f_2tab)           "*.trr, *.gro (one frame - can be only positions)"
+        write(output_unit,f_line)   ""
+        write(output_unit,f_line)   heading(flat_pattern, "Optional useful options")
+        write(output_unit,f_line)   ""
         write(output_unit,f_line)   "-H(help)"
         write(output_unit,f_1tab)       "Prints this help dialog."
         write(output_unit,f_line)   ""

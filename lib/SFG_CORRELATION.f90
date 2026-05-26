@@ -1,24 +1,24 @@
 module SFG_CORRELATION
-	use, intrinsic :: iso_fortran_env
-	use BINDER_FILE, only: group_binder_type
-	use BOXDATA, only: boxdata_type
+use, intrinsic :: iso_fortran_env
+use BINDER_FILE, only: group_binder_type
+use BOXDATA, only: boxdata_type
     use FRAME_READERS, only: current_frame_type
     use SFG_STRUCTURE, only: sfg_structure_group_type
     use DXDRZ_DB, only: dXdrz_db_type
-	implicit none
+implicit none
     
-	type correlation_function_type
+type correlation_function_type
         logical, dimension(:,:), allocatable :: binder_history !(SFG_UNITS, corrlen)
-		real(real64), dimension(:,:), allocatable :: A_history, M_history !(SFG_UNITS, corrlen)
+        real(real64), dimension(:,:), allocatable :: A_history, M_history !(SFG_UNITS, corrlen)
         real(real64), dimension(:), allocatable :: avA, avM !(SFG_UNITS)
         real(real64), dimension(:), allocatable :: correlation_function !(corrlen)
         integer(int64), dimension(:), allocatable :: norm !(corrlen)
 
-        integer(int64) ::	corrlen,& !number of samples based on boxdata $corrlen
-							t, nt1 !time counter - used for the circular buffer
+        integer(int64) ::corrlen,& !number of samples based on boxdata $corrlen
+                            t, nt1 !time counter - used for the circular buffer
         
     contains
-		procedure, public :: init
+        procedure, public :: init
         procedure, public :: calculate_step
         procedure, private :: fill_history
         !procedure, public :: skip_step
@@ -41,7 +41,7 @@ module SFG_CORRELATION
         if(allocated(this%avM)) deallocate(this%avM)
         if(allocated(this%correlation_function)) deallocate(this%correlation_function)
         if(allocated(this%norm)) deallocate(this%norm)
-		
+
         !boxdata%CORRLEN (ps)
         !boxdata%DT (fs)
         this%corrlen = INT((1000 * boxdata%CORRLEN) / boxdata%DT) + 1
@@ -79,28 +79,28 @@ module SFG_CORRELATION
         call this%fill_history(current_frame, struct_group, binder, dXdrz_db, layer_selection, boxdata)
 
         !TODO OMP
-      	do timelag = 1, min(this%t,this%corrlen) !ramping the iterations from beginning...
+      do timelag = 1, min(this%t,this%corrlen) !ramping the iterations from beginning...
             !the timelag actually goes from 0 to max_lag (corrlen - 1) indexing issues...
-			this%norm(timelag) = this%norm(timelag) + 1
+        this%norm(timelag) = this%norm(timelag) + 1
             !NT0 based on timelag, scan the whole history (wraparound of the ringbuffer)
             nt0 = mod(this%t - timelag, this%corrlen) + 1
             
-			do m = 1, struct_group%n_elements
-				! if the molecule is not in selected layer continue
-				if(.not. (this%binder_history(m,nt0) .or. this%binder_history(m, this%nt1))) cycle
-				
-				if(this%binder_history(m,nt0) .and. this%binder_history(m,this%nt1)) then
-					weight = 1.0_real64
-				else
-				! molecule M is present only in time nt1 or nt2
-				! half weight for the term
+        do m = 1, struct_group%n_elements
+            ! if the molecule is not in selected layer continue
+            if(.not. (this%binder_history(m,nt0) .or. this%binder_history(m, this%nt1))) cycle
+            
+            if(this%binder_history(m,nt0) .and. this%binder_history(m,this%nt1)) then
+                weight = 1.0_real64
+            else
+            ! molecule M is present only in time nt1 or nt2
+            ! half weight for the term
                     weight = 0.5_real64
-				end if
+            end if
                 
-				this%correlation_function(timelag) = this%correlation_function(timelag) &
+            this%correlation_function(timelag) = this%correlation_function(timelag) &
                         + (this%A_history(m, this%nt1)) * (this%M_history(m, nt0))
-			end do
-		end do
+        end do
+    end do
     end subroutine calculate_step
 
     subroutine fill_history(this, current_frame, struct_group, binder, dXdrz_db, layer_selection, boxdata)

@@ -22,7 +22,7 @@ type(sfg_structure_type) ::                                 struct
 
 type(binder_type) ::                                        binder
 
-integer(int64) ::											step
+integer(int64) ::                                           step
 
 integer ::  res
 

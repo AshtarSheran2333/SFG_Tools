@@ -110,16 +110,16 @@ subroutine Fourier_transform(c_t, dt, domega, omega_max, c_omega, filter)
     end subroutine Fourier_transform
 
 !function s_to_HHHMMSS(seconds)
-!	character(14) :: s_to_HHHMMSS
-!	real*8, intent(IN) :: seconds
-!	integer :: hours, minutes, sec
-!	
-!	hours = seconds/3600
-!	minutes = (seconds-hours*3600)/60
-!	sec = seconds - hours*3600 - minutes*60
-!	
-!	write(s_to_HHHMMSS,'(I5.1,A1,I2.2,A1,I2.2)'), hours, ":", minutes, ":", sec
-!	s_to_HHHMMSS = adjustl(s_to_HHHMMSS)
+!    character(14) :: s_to_HHHMMSS
+!    real*8, intent(IN) :: seconds
+!    integer :: hours, minutes, sec
+!    
+!    hours = seconds/3600
+!    minutes = (seconds-hours*3600)/60
+!    sec = seconds - hours*3600 - minutes*60
+!    
+!    write(s_to_HHHMMSS,'(I5.1,A1,I2.2,A1,I2.2)'), hours, ":", minutes, ":", sec
+!    s_to_HHHMMSS = adjustl(s_to_HHHMMSS)
 !end function s_to_HHHMMSS
 
 end module

@@ -122,7 +122,7 @@ subroutine get_group_density(index)
     real(real64), dimension(2) :: is_ret
     real(real64), dimension(3) :: com
 
-	!TODO the openmp approach like this is permitted by ifx, but highly nonstandard
+    !TODO the openmp approach like this is permitted by ifx, but highly nonstandard
     !density of structgroup
     !associate(udp => up_group_densities(index)%bins(:), &
     !            bdp => bot_group_densities(index)%bins(:))
