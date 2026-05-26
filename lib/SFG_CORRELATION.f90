@@ -78,29 +78,35 @@ type correlation_function_type
         
         call this%fill_history(current_frame, struct_group, binder, dXdrz_db, layer_selection, boxdata)
 
-        !TODO OMP
-      do timelag = 1, min(this%t,this%corrlen) !ramping the iterations from beginning...
+        if(this%t == 1) return !in the first step, we would compute correlation of only zeroes, skip it
+
+        !in this OMP loop, we are only writing to array(timelag), it is safe to share the whole instance of this
+        !$OMP PARALLEL DO DEFAULT(NONE) &
+        !$OMP SHARED(this, struct_group) &
+        !$OMP PRIVATE(timelag, nt0, m, weight)
+        do timelag = 1, min(this%t,this%corrlen) !ramping the iterations from beginning...
             !the timelag actually goes from 0 to max_lag (corrlen - 1) indexing issues...
-        this%norm(timelag) = this%norm(timelag) + 1
+            this%norm(timelag) = this%norm(timelag) + 1
             !NT0 based on timelag, scan the whole history (wraparound of the ringbuffer)
             nt0 = mod(this%t - timelag, this%corrlen) + 1
             
-        do m = 1, struct_group%n_elements
-            ! if the molecule is not in selected layer continue
-            if(.not. (this%binder_history(m,nt0) .or. this%binder_history(m, this%nt1))) cycle
+            do m = 1, struct_group%n_elements
+                ! if the molecule is not in selected layer continue
+                if(.not. (this%binder_history(m,nt0) .or. this%binder_history(m, this%nt1))) cycle
             
-            if(this%binder_history(m,nt0) .and. this%binder_history(m,this%nt1)) then
-                weight = 1.0_real64
-            else
-            ! molecule M is present only in time nt1 or nt2
-            ! half weight for the term
+                if(this%binder_history(m,nt0) .and. this%binder_history(m,this%nt1)) then
+                    weight = 1.0_real64
+                else
+                    ! molecule M is present only in time nt1 or nt2
+                    ! half weight for the term
                     weight = 0.5_real64
-            end if
+                end if
                 
-            this%correlation_function(timelag) = this%correlation_function(timelag) &
+                this%correlation_function(timelag) = this%correlation_function(timelag) &
                         + (this%A_history(m, this%nt1)) * (this%M_history(m, nt0))
+            end do
         end do
-    end do
+        !$OMP END PARALLEL DO
     end subroutine calculate_step
 
     subroutine fill_history(this, current_frame, struct_group, binder, dXdrz_db, layer_selection, boxdata)
@@ -120,7 +126,7 @@ type correlation_function_type
         !clear binder
         this%binder_history(:,this%nt1) = .false.
     
-        !TODO OMP
+        !TODO OMP - probably not worth spawning the parallel region
         !go over all SFG units
         do m = 1, struct_group%n_elements
             !get am of m
