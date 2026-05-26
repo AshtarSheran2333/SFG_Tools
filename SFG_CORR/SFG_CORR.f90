@@ -29,8 +29,8 @@ type(correlation_function_type) ::                          cf
 integer(int64) ::                                           step
 
 integer(int8), dimension(:), allocatable ::                 layer_selection
-complex(real64), dimension(:), allocatable ::               spectrum
-integer :: i
+
+integer :: grp = 2
 
 !evaluate program options
 call evaluate_program_options(fr)
@@ -54,7 +54,7 @@ error_io_check(binder%init(struct), "unable to init binder")
 error_io_check(binder%open_file(), "unable to open binder file")
 
 !CF
-call cf%init(struct%groups(1), bd)
+call cf%init(struct%groups(grp), bd)
 
 !!TODO print recap of the parameters - what groups has been selected... ???
 !call recap()
@@ -65,32 +65,54 @@ call cf%init(struct%groups(1), bd)
 
 !TODO the main loop
 do step = 1, bd%NSTEP
-    !TODO read frame / skip frame
+    !reading each trajectory frame
     error_io_check(fr%read_frame(), "unable to read trajectory frame")
-    !TODO read binder frame / skip binder frame
+    !reading each binder frame
     error_io_check(binder%read_frame(), "unable to read binder frame")
 
-    call cf%calculate_step(fr%frame, struct%groups(1), binder%binder_groups(1), parameters, layer_selection, bd) 
-
+    !self_skip
+    if( (mod(step, bd%SELF_SKIP) == 1) .or. (bd%SELF_SKIP == 1) ) then
+        call cf%calculate_step(fr%frame, struct%groups(grp), binder%binder_groups(grp), parameters, layer_selection, bd) 
+    else
+        call cf%skip_step(fr%frame, struct%groups(grp), binder%binder_groups(grp), parameters, layer_selection, bd) 
+    end if
     !print progress
     call print_main_loop_progress(step, bd%NSTEP)
 
     !TODO some way to print backup - sometimes take the correlation data, FFT -> get the convergence series
 end do !end of the main loop
 
-call Fourier_transform(cf%correlation_function, bd%DT, bd%DFREQ, bd%FREQ, spectrum, bd%FILTER)
-open(84, file = "spectrum.dat")
-open(85, file = "corr.dat")
-do i = 1, size(spectrum)
-    write(84, "(3f16.8)") (i-1)*bd%DFREQ, real(spectrum(i)), imag(spectrum(i))
-end do
-do i = 1, size(cf%correlation_function)
-    write(85, "(2F16.8)") (i-1)*bd%DT, cf%correlation_function(i)
-end do
-close(84)
-close(85)
-
+call testing_finalize()
 print*, "DONE"
+
+    contains
+    
+subroutine testing_finalize
+    !TODO this needs to be done better, just testing
+    complex(real64), dimension(:), allocatable ::               spectrum
+    integer :: i
+    real(real64) :: fp, dt_si, t, f
+    
+    call Fourier_transform(cf%correlation_function, bd%DT, bd%DFREQ, bd%FREQ, spectrum, bd%FILTER)
+
+    open(84, file = "spectrum.dat")
+    open(85, file = "corr.dat")
+    do i = 1, size(spectrum)
+        spectrum(i) = (iunit) / (k_b * bd%TEMPERATURE * (i-1) * bd%DFREQ * 2.0_real64 * pi * c) 
+        write(84, "(3f16.8)") (i-1)*bd%DFREQ, real(spectrum(i)), imag(spectrum(i))
+    end do
+
+    fp = bd%FILTER * 1e-12 !s
+    dt_si = bd%DT * 1e-15_real64 ! s
+    do i = 1, size(cf%correlation_function)
+        t = (i-1) * dt_si
+        f = exp( - (t*t)/(fp*fp) )
+        write(85, "(3F16.8,' ',I0)") (i-1)*bd%DT, cf%correlation_function(i), f, cf%norm(i)
+    end do
+    close(84)
+    close(85)
+
+end subroutine
 !TODO finalize
 
 !TODO sort everything below, get rid of it
@@ -876,9 +898,6 @@ print*, "DONE"
 !        !$OMP END DO
 !        !$OMP END PARALLEL
 !end subroutine corr_hydroxyls
-
-contains
-
 
 end program
 

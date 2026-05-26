@@ -15,10 +15,10 @@ module SFG_UTILS
     implicit none
 
     real(real64), parameter ::  pi = acos(-1.0_real64),& ! -
-                                k_b = 1.386658d-23,&
-                                c = 2.99792458d10,& ! cm/s
-                                debye_to_ea = 0.208,& ! Debye to eA
-                                e_to_c = 1.6 ! 1e to C
+                                k_b = 1.386658e-23_real64,&
+                                c = 2.99792458e10_real64,& ! cm/s
+                                debye_to_ea = 0.208_real64,& ! Debye to eA
+                                e_to_c = 1.6_real64 ! 1e to C
 
     complex(real64), parameter :: iunit = (0.0d0,1.0d0) 
 

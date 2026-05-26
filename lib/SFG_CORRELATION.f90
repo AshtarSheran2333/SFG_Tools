@@ -20,8 +20,8 @@ type correlation_function_type
     contains
         procedure, public :: init
         procedure, public :: calculate_step
+        procedure, public :: skip_step
         procedure, private :: fill_history
-        !procedure, public :: skip_step
     end type
     
     contains
