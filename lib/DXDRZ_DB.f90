@@ -58,10 +58,10 @@ module DXDRZ_DB
             ! dAdrz(2,3) =  0.00 dA(y,z)/drz
             ! dAdrz(3,2) =  0.00 dA(z,y)/drz
 
-            this%dMdrz_record(2)%elements(:) =   (/  0.00_real64,  0.00_real64,  1.00_real64 /)
-            this%dAdrz_record(2)%elements(1,:) = (/  0.50_real64,  0.00_real64,  0.00_real64 /)
-            this%dAdrz_record(2)%elements(2,:) = (/  0.00_real64,  0.50_real64,  0.00_real64 /)
-            this%dAdrz_record(2)%elements(3,:) = (/  0.00_real64,  0.00_real64,  1.00_real64 /)
+            this%dMdrz_record(1)%elements(:) =   (/  0.00_real64,  0.00_real64,  1.00_real64 /)
+            this%dAdrz_record(1)%elements(1,:) = (/  0.50_real64,  0.00_real64,  0.00_real64 /)
+            this%dAdrz_record(1)%elements(2,:) = (/  0.00_real64,  0.50_real64,  0.00_real64 /)
+            this%dAdrz_record(1)%elements(3,:) = (/  0.00_real64,  0.00_real64,  1.00_real64 /)
 
             !------------------------------------------------------------------------------!
             !                                                                              !
