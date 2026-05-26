@@ -24,8 +24,8 @@ type(density_profile_type), dimension(:), allocatable ::    up_group_densities,&
                                                             bot_group_densities
 
 integer(int64) ::                                           step,&
-                                                            sk,&
-                                                            gr
+                                                            sk
+integer ::                                                  gr
 
 !############################ BEGIN INITIALIZATION #############################
 
@@ -122,14 +122,15 @@ subroutine get_group_density(index)
     real(real64), dimension(2) :: is_ret
     real(real64), dimension(3) :: com
 
+	!TODO the openmp approach like this is permitted by ifx, but highly nonstandard
     !density of structgroup
-    associate(udp => up_group_densities(index)%bins(:), &
-                bdp => bot_group_densities(index)%bins(:))
-    !$omp parallel do &
-    !$omp default(none) &
-    !$omp shared(bd, fr, instasurf, index, up_group_densities, bot_group_densities, struct) &
-    !$omp private(i, j, com, is_ret) &
-    !$omp reduction(+:udp, bdp)
+    !associate(udp => up_group_densities(index)%bins(:), &
+    !            bdp => bot_group_densities(index)%bins(:))
+    !!$omp parallel do &
+    !!$omp default(none) &
+    !!$omp shared(bd, fr, instasurf, index, up_group_densities, bot_group_densities, struct) &
+    !!$omp private(i, j, com, is_ret) &
+    !!$omp reduction(+:udp, bdp)
     do i = 1, size(struct%groups(index)%sfg_units)
 
         !get "center of mass" (geometric average of all bases)
@@ -144,8 +145,8 @@ subroutine get_group_density(index)
         call bot_group_densities(index)%add_point(is_ret(1), 1.0_real64)
 
     end do
-    !$omp end parallel do
-    end associate
+    !!$omp end parallel do
+    !end associate
     call up_group_densities(index)%next_frame()
     call bot_group_densities(index)%next_frame()
 end subroutine

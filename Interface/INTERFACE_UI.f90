@@ -69,7 +69,7 @@ module INTERFACE_UI
         class(frame_reader), allocatable, intent(inout) :: fr
         character(len=256) :: op, arg, arg1
         character :: option
-        integer(kind=int64) :: i
+        integer :: i
 
         call print_art()
         write(output_unit,f_line) heading(wavy_pattern,"Evaluation of the program options")

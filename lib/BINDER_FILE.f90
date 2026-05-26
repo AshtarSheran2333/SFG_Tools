@@ -173,7 +173,7 @@ module BINDER_FILE
         allocate(this%group_names(size(struct%groups)))
         do group = 1, size(struct%groups)
             allocate(this%binder_groups(group)%layers(struct%groups(group)%n_elements))
-            this%binder_groups(group)%layers = Z'FF' !illegal
+            this%binder_groups(group)%layers = transfer(Z'FF',0_int8) !illegal
         end do
 
         this%group_names = struct%groups(:)%name

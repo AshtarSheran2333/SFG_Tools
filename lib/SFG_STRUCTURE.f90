@@ -437,19 +437,19 @@ module SFG_STRUCTURE
             D(:,3) = u / r
 
             !solve base-reference vector
-            scale = size(this%chromophores(n)%references) 
-            if(scale == 0) then
+            i = size(this%chromophores(n)%references)
+            if(i == 0) then
                 !no base -> use -Z
                 v = (/0.0, 0.0, -1.0/)
             else
                 !average the bases
                 v = 0
-                do ref = 1, scale
+                do ref = 1, i
                     diff = frame%positions(:,this%chromophores(n)%references(ref)) - frame%positions(:,this%chromophores(n)%base)
                     diff = pbc_minimum_image(diff, boxdata)
                     v = v + diff
                 end do
-                v = v / scale
+                v = v / i
             end if
 
             ! x component

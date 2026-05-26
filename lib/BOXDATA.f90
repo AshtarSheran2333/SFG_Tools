@@ -10,7 +10,7 @@ module BOXDATA
         !PRIVATE variables
         integer, private :: fileUnit
 
-        character(len=3), private :: polarization = "SSP"	
+        character(len=3), private :: polarization = "SSP"
         
         !PUBLIC variables (boxdata parameters) - TODO No time to write getters - it will be public
         real(real64), dimension(3) :: box_dimensions = (/-1,-1,-1/),& !Angstrom
@@ -47,7 +47,6 @@ module BOXDATA
     contains
 
         procedure, public :: read_boxdata
-        procedure, public :: get_maxlag !TODO probably handled elsewhere
 
         procedure, private :: print_recap
         procedure, private :: read_box_dimensions
@@ -555,13 +554,13 @@ function read_polarization(this) result(res)
             this%P=1
             this%Q=1
             this%R=3
-            this%polarization = "SSP"	
+            this%polarization = "SSP"
 
         case ('PPP')
             this%P=3
             this%Q=3
             this%R=3
-            this%polarization = "PPP"	
+            this%polarization = "PPP"
         
         case default
             write(error_unit,"(A,A,A)") "BOXDATA ERROR: $POLARIZATION ", line, " is not supported."
@@ -728,20 +727,6 @@ subroutine read_boxdata(this)
     end if
     
 end subroutine read_boxdata
-
-!!!returns number of samples of correlation fucntion based on DT and CORRLEN (ps)
-integer*8 function get_maxlag(this)
-    class(boxdata_type) :: this
-    
-    if(this%corrlen == 0) then
-        get_maxlag = this%nstep - 1
-    else if(nint(1000*this%CORRLEN/this%dt) >= this%nstep) then
-        get_maxlag = this%nstep - 1
-    else
-        get_maxlag = nint(1000*this%CORRLEN/this%DT)
-    end if
-
-end function get_maxlag
 
 subroutine print_recap(this)
     class(boxdata_type) :: this

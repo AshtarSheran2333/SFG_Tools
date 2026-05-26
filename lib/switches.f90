@@ -49,14 +49,14 @@ contains
 
 	subroutine get_switch_string(counter, option, targetString)
         implicit none
-		integer(kind=8), intent(inout) :: counter
+		integer, intent(inout) :: counter
 		character, intent(in) :: option
 		character(len=*), intent(inout) :: targetString
 		character(len = 256) :: arg
 
 		counter = counter + 1
 		if(counter > iargc()) error_stop("not enough arguments for -"//option)
-		call getarg(counter, arg)
+		call get_command_argument(counter, arg)
 		if(.not. is_flag(trim(arg))) then
 			targetString = trim(arg)
 		else
@@ -66,14 +66,14 @@ contains
 
 	subroutine get_switch_real64(counter, option, targetReal)
         implicit none
-		integer(kind=8), intent(inout) :: counter
+		integer, intent(inout) :: counter
 		character, intent(in) :: option
 		real(kind=8), intent(inout) :: targetReal
 		character(len = 256) :: arg
 		integer :: ierr
 		counter = counter + 1
 		if(counter > iargc()) error_stop("not enough arguments for -"//option)
-		call getarg(counter, arg)
+		call get_command_argument(counter, arg)
 		if(.not. is_flag(trim(arg))) then
 			read(arg, *, iostat = ierr) targetReal
 			if(ierr .ne. 0) then
@@ -87,7 +87,7 @@ contains
 
 	subroutine get_switch_int8(counter, option, targetInteger)
         implicit none
-		integer(kind=8), intent(inout) :: counter
+		integer, intent(inout) :: counter
 		character, intent(in) :: option
 		integer(kind=1), intent(inout) :: targetInteger
 		character(len = 256) :: arg
@@ -96,7 +96,7 @@ contains
 		if(counter > iargc()) then
 			error_stop("not enough arguments for -"//option)
 		end if
-		call getarg(counter, arg)
+		call get_command_argument(counter, arg)
 		if(.not. is_flag(trim(arg))) then
 			read(arg, *, iostat = ierr) targetInteger
 			if(ierr .ne. 0) then
@@ -111,7 +111,7 @@ contains
 
 	subroutine get_switch_int64(counter, option, targetInteger)
         implicit none
-		integer(kind=8), intent(inout) :: counter
+		integer, intent(inout) :: counter
 		character, intent(in) :: option
 		integer(kind=8), intent(inout) :: targetInteger
 		character(len = 256) :: arg
@@ -121,7 +121,7 @@ contains
 			error_stop("not enough arguments for -"//option)
 			stop
 		end if
-		call getarg(counter, arg)
+		call get_command_argument(counter, arg)
 		if(.not. is_flag(trim(arg))) then
 			read(arg, *, iostat = ierr) targetInteger
 			if(ierr .ne. 0) then

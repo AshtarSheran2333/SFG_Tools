@@ -37,7 +37,7 @@ module INSTANTANEOUS_SURFACE
         
     end type instantaneous_surface_type
     
-    integer(int32), parameter :: instantaneous_surface_magic = Z'53474653' !will be "SFGS" when hexdumped
+    integer(int32), parameter :: instantaneous_surface_magic = INT(Z'53474653', int32) !will be "SFGS" when hexdumped
     integer(int32), parameter :: instantaneous_surface_bin_version = 0
     
 contains

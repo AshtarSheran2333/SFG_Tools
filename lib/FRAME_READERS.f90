@@ -124,7 +124,6 @@ module FRAME_READERS
     interface
 
         module function trr_open_file(this, filename, filename1) result(res)
-            import :: trr_frame_reader
             class(trr_frame_reader), intent(inout) ::       this
             character(*), intent(in) ::                     filename
             character(*), intent(in), optional ::           filename1
@@ -133,119 +132,102 @@ module FRAME_READERS
         end function
     
         module function trr_read_frame(this) result(res)
-            import :: trr_frame_reader
             class(trr_frame_reader), intent(inout) ::       this
 
             integer ::                                      res
         end function trr_read_frame
     
         module function trr_skip_frame(this) result(res)
-            import :: trr_frame_reader
             class(trr_frame_reader), intent(inout) ::       this
 
             integer ::                                      res        
         end function trr_skip_frame
     
         module function trr_rewind_file(this) result(res)
-            import :: trr_frame_reader
             class(trr_frame_reader), intent(inout) ::       this
 
             integer ::                                      res
         end function trr_rewind_file
     
         module function trr_close_file(this) result(res)
-            import :: trr_frame_reader
             class(trr_frame_reader), intent(inout) ::       this
 
             integer ::                                      res
         end function trr_close_file
     
         module function trr_is_open(this) result(res)
-            import :: trr_frame_reader
             class(trr_frame_reader), intent(inout) ::       this
 
             logical ::                                      res
         end function trr_is_open
 
         module function trr_read_header(this) result(res)
-            import :: trr_frame_reader
             class(trr_frame_reader), intent(inout) ::       this
 
             logical ::                                      res
         end function trr_read_header
 
         module function trr_read_ir(this) result(res)
-            import :: trr_frame_reader
             class(trr_frame_reader), intent(inout) ::       this
 
             logical ::                                      res
         end function trr_read_ir
 
         module function trr_read_e(this) result(res)
-            import :: trr_frame_reader
             class(trr_frame_reader), intent(inout) ::       this
 
             logical ::                                      res
         end function trr_read_e
 
         module function trr_read_box(this) result(res)
-            import :: trr_frame_reader
             class(trr_frame_reader), intent(inout) ::       this
 
             logical ::                                      res
         end function trr_read_box
 
         module function trr_read_vir(this) result(res)
-            import :: trr_frame_reader
             class(trr_frame_reader), intent(inout) ::       this
 
             logical ::                                      res
         end function trr_read_vir
 
         module function trr_read_pres(this) result(res)
-            import :: trr_frame_reader
             class(trr_frame_reader), intent(inout) ::       this
 
             logical ::                                      res
         end function trr_read_pres
 
         module function trr_read_top(this) result(res)
-            import :: trr_frame_reader
             class(trr_frame_reader), intent(inout) ::       this
 
             logical ::                                      res
         end function trr_read_top
 
         module function trr_read_sym(this) result(res)
-            import :: trr_frame_reader
             class(trr_frame_reader), intent(inout) ::       this
 
             logical ::                                      res
         end function trr_read_sym
 
         module function trr_read_positions(this) result(res)
-            import :: trr_frame_reader
             class(trr_frame_reader), intent(inout) ::       this
 
             logical ::                                      res
         end function trr_read_positions
 
         module function trr_read_velocities(this) result(res)
-            import :: trr_frame_reader
             class(trr_frame_reader), intent(inout) ::       this
 
             logical ::                                      res
         end function trr_read_velocities
 
         module function trr_read_forces(this) result(res)
-            import :: trr_frame_reader
             class(trr_frame_reader), intent(inout) ::       this
 
             logical ::                                      res
         end function trr_read_forces
 
         module function trr_fill_atom_names(this, filename) result(res)
-            import :: trr_frame_reader
             class(trr_frame_reader), intent(inout) ::       this
             character(*) :: filename
 
@@ -276,7 +258,6 @@ module FRAME_READERS
     interface
 
         module function gro_open_file(this, filename, filename1) result(res)
-            import :: gro_frame_reader
             class(gro_frame_reader), intent(inout) ::       this
             character(*), intent(in) ::                     filename
             character(*), intent(in), optional ::           filename1
@@ -285,42 +266,36 @@ module FRAME_READERS
         end function
     
         module function gro_read_frame(this) result(res)
-            import :: gro_frame_reader
             class(gro_frame_reader), intent(inout) ::       this
 
             integer ::                                      res
         end function gro_read_frame
     
         module function gro_skip_frame(this) result(res)
-            import :: gro_frame_reader
             class(gro_frame_reader), intent(inout) ::       this
 
             integer ::                                      res        
         end function gro_skip_frame
     
         module function gro_rewind_file(this) result(res)
-            import :: gro_frame_reader
             class(gro_frame_reader), intent(inout) ::       this
 
             integer ::                                      res
         end function gro_rewind_file
     
         module function gro_close_file(this) result(res)
-            import :: gro_frame_reader
             class(gro_frame_reader), intent(inout) ::       this
             
             integer ::                                      res
         end function gro_close_file
     
         module function gro_is_open(this) result(res)
-            import :: gro_frame_reader
             class(gro_frame_reader), intent(inout) ::       this
 
             logical ::                                      res
         end function gro_is_open
 
         module function gro_read_header(this) result(res)
-            import :: gro_frame_reader
             class(gro_frame_reader), intent(inout) ::       this
 
             logical ::                                      res
@@ -353,7 +328,6 @@ module FRAME_READERS
     interface
 
         module function xyz_open_file(this, filename, filename1) result(res)
-            import :: xyz_frame_reader
             class(xyz_frame_reader), intent(inout) ::       this
             character(*), intent(in) ::                     filename
             character(*), intent(in), optional ::           filename1
@@ -362,55 +336,47 @@ module FRAME_READERS
         end function
     
         module function xyz_read_frame(this) result(res)
-            import :: xyz_frame_reader
             class(xyz_frame_reader), intent(inout) ::       this
 
             integer ::                                      res
         end function xyz_read_frame
     
         module function xyz_skip_frame(this) result(res)
-            import :: xyz_frame_reader
             class(xyz_frame_reader), intent(inout) ::       this
 
             integer ::                                      res        
         end function xyz_skip_frame
     
         module function xyz_rewind_file(this) result(res)
-            import :: xyz_frame_reader
             class(xyz_frame_reader), intent(inout) ::       this
 
             integer ::                                      res
         end function xyz_rewind_file
     
         module function xyz_close_file(this) result(res)
-            import :: xyz_frame_reader
             class(xyz_frame_reader), intent(inout) ::       this
             integer ::                                      res
         end function xyz_close_file
     
         module function xyz_is_open(this) result(res)
-            import :: xyz_frame_reader
             class(xyz_frame_reader), intent(inout) ::       this
 
             logical ::                                      res
         end function xyz_is_open
     
         module function xyz_read_header_with_velocities(this) result(res)
-            import :: xyz_frame_reader
             class(xyz_frame_reader), intent(inout) ::       this
 
             logical ::                                      res
         end function xyz_read_header_with_velocities
 
         module function xyz_read_header_no_velocities(this) result(res)
-            import :: xyz_frame_reader
             class(xyz_frame_reader), intent(inout) ::       this
 
             logical ::                                      res
         end function xyz_read_header_no_velocities
 
         module function xyz_open_with_velocities(this, posfile, velfile) result(res)
-            import :: xyz_frame_reader
             class(xyz_frame_reader), intent(inout) ::       this
             character(*), intent(in) :: posfile, velfile
 
@@ -418,7 +384,6 @@ module FRAME_READERS
         end function xyz_open_with_velocities
 
         module function xyz_open_no_velocities(this, posfile) result(res)
-            import :: xyz_frame_reader
             class(xyz_frame_reader), intent(inout) ::       this
             character(*), intent(in) :: posfile
 
