@@ -30,7 +30,7 @@ integer(int64) ::                                           step
 
 integer(int8), dimension(:), allocatable ::                 layer_selection
 
-integer :: grp = 2
+integer :: grp = 9
 
 !evaluate program options
 call evaluate_program_options(fr)
@@ -93,13 +93,18 @@ subroutine testing_finalize
     integer :: i
     real(real64) :: fp, dt_si, t, f
     
+    do i = 1, size(cf%correlation_function)
+        cf%correlation_function(i) = cf%correlation_function(i) * (debye_to_ea * e_to_c) / (bd%BOX_DIMENSIONS(1) * bd%BOX_DIMENSIONS(2) * 10.0_real64 * max(1,cf%norm(i)))
+    end do
+
+
     call Fourier_transform(cf%correlation_function, bd%DT, bd%DFREQ, bd%FREQ, spectrum, bd%FILTER)
 
-    open(84, file = "spectrum.dat")
-    open(85, file = "corr.dat")
+    open(84, file = "spectrum.dat", recl=128)
+    open(85, file = "corr.dat", recl = 128)
     do i = 1, size(spectrum)
-        spectrum(i) = (iunit) / (k_b * bd%TEMPERATURE * (i-1) * bd%DFREQ * 2.0_real64 * pi * c) 
-        write(84, "(3f16.8)") (i-1)*bd%DFREQ, real(spectrum(i)), imag(spectrum(i))
+        spectrum(i) = spectrum(i) * (-iunit) / (k_b * bd%TEMPERATURE * (i-1) * bd%DFREQ * 2.0_real64 * pi * c) 
+        write(84, *) (i-1)*bd%DFREQ, real(spectrum(i)), imag(spectrum(i))
     end do
 
     fp = bd%FILTER * 1e-12 !s
@@ -107,7 +112,7 @@ subroutine testing_finalize
     do i = 1, size(cf%correlation_function)
         t = (i-1) * dt_si
         f = exp( - (t*t)/(fp*fp) )
-        write(85, "(3F16.8,' ',I0)") (i-1)*bd%DT, cf%correlation_function(i), f, cf%norm(i)
+        write(85, *) (i-1)*bd%DT, cf%correlation_function(i), f, cf%norm(i)
     end do
     close(84)
     close(85)
