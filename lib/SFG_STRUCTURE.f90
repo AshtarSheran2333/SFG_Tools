@@ -356,8 +356,9 @@ module SFG_STRUCTURE
         res = -2; if(ierr .ne. 0) return
         this%line_number = this%line_number + 1
 
+        ids = 0
         read(line, *, iostat = ierr) (ids(i), i = 1, max_chromophore_references)
-        if(i < 3) then !incomplete chromophore - must have PAR_ID, ACTOR, BASE
+        if(count(ids .ne. 0) < 3) then !incomplete chromophore - must have PAR_ID, ACTOR, BASE
             backspace(this%file)
             this%line_number = this%line_number - 1
             res = -1
@@ -609,7 +610,7 @@ module SFG_STRUCTURE
         this%line_number = 0
         this%max_atom_index = -1
         
-        open(newunit = this%file, file = filename, status = 'old', iostat = ierr)
+        open(newunit = this%file, file = filename, status = 'old', form = 'formatted', access = 'sequential' , iostat = ierr)
         res = -2; if(ierr .ne. 0) return
 
         call this%clear_structure()
