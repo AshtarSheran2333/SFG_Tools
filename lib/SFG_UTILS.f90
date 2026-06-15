@@ -20,6 +20,10 @@ module SFG_UTILS
                                 debye_to_ea = 0.208_real64,& ! Debye to eA
                                 e_to_c = 1.6_real64 ! 1e to C
 
+    real(real64), dimension(3), parameter ::    X_AXIS = (/1_real64, 0_real64, 0_real64/),&
+                                                Y_AXIS = (/0_real64, 1_real64, 0_real64/),&
+                                                Z_AXIS = (/0_real64, 0_real64, 1_real64/)
+    
     complex(real64), parameter :: iunit = (0.0d0,1.0d0) 
 
     contains
