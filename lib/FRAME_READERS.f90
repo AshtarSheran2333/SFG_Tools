@@ -6,6 +6,7 @@ module FRAME_READERS
     real(real64), parameter ::                              nm_to_angstrom = 10
 
     type :: current_frame_type
+        !TODO make positions and velocities a type...
         real(real64), dimension(:,:), allocatable ::        positions
         real(real64), dimension(:,:), allocatable ::        velocities
         character(len=5), dimension(:), allocatable ::      names

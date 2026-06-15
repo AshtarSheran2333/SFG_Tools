@@ -92,7 +92,7 @@ module DENSITY
         integer :: file, i
         !write file, do not forget to divide each bin by number of steps
         !if name "" do not write the file...
-        open(newunit = file, file = trim(adjustl(this%name))//"_density.dat")
+        open(newunit = file, file = trim(adjustl(this%name))//".dat")
         
         do i = 1, size(this%bins)
             write(file, *) real(i-1)*this%delta + this%x_min, this%bins(i)/(this%n_frames * this%bin_volume)

@@ -7,6 +7,7 @@ use BOXDATA
 use INSTANTANEOUS_SURFACE
 use DENSITY
 use SFG_STRUCTURE
+use SFG_UTILS
 
 implicit none
 
@@ -22,6 +23,9 @@ type(sfg_structure_type) ::                                 struct
 
 type(density_profile_type), dimension(:), allocatable ::    up_group_densities,&
                                                             bot_group_densities
+
+type(density_profile_type), dimension(:), allocatable ::    up_group_orientations,&
+                                                            bot_group_orientations
 
 integer(int64) ::                                           step,&
                                                             sk
@@ -50,6 +54,7 @@ error_io_check(struct%read_structure("struct.txt"), "unable to read structure fi
 
 !init densities
 call init_group_densities()
+call init_group_orientations()
 
 write(output_unit,f_line) heading(wavy_pattern, "Interface calculation started")
 write(output_unit,f_line) ""
@@ -71,7 +76,7 @@ do step = 1, bd%NSTEP, bd%INTERFACE_SKIP
     
     !calculation of densities
     do gr = 1, size(struct%groups)
-        call get_group_density(gr)
+        call group_frame_analysis(gr)
     end do
 
     call print_main_loop_progress(step, bd%NSTEP)
@@ -81,7 +86,7 @@ do step = 1, bd%NSTEP, bd%INTERFACE_SKIP
         error_io_check(fr%read_frame(), "unable to read a frame") !reading frame
         
         do gr = 1, size(struct%groups)
-            call get_group_density(gr)
+            call group_frame_analysis(gr)
         end do
 
         call print_main_loop_progress(step+sk, bd%NSTEP)
@@ -110,17 +115,33 @@ subroutine init_group_densities()
     allocate(bot_group_densities(size(struct%groups)))
 
     do i = 1, size(struct%groups)
-        call up_group_densities(i)%init(bd%DENSITY_R_START, bd%DENSITY_R_END, bd%DENSITY_N_POINTS, bd%BOX_DIMENSIONS, "up_"//trim(adjustl(struct%groups(i)%name)))
-        call bot_group_densities(i)%init(bd%DENSITY_R_START, bd%DENSITY_R_END, bd%DENSITY_N_POINTS, bd%BOX_DIMENSIONS, "bot_"//trim(adjustl(struct%groups(i)%name)))
+        call up_group_densities(i)%init(bd%DENSITY_R_START, bd%DENSITY_R_END, bd%DENSITY_N_POINTS, bd%BOX_DIMENSIONS, "up_"//trim(adjustl(struct%groups(i)%name))//"_density")
+        call bot_group_densities(i)%init(bd%DENSITY_R_START, bd%DENSITY_R_END, bd%DENSITY_N_POINTS, bd%BOX_DIMENSIONS, "bot_"//trim(adjustl(struct%groups(i)%name))//"_density")
     end do
 end subroutine init_group_densities
 
-subroutine get_group_density(index)
+subroutine init_group_orientations()
+    implicit none
+    integer :: i
+    
+    if(allocated(up_group_orientations)) deallocate(up_group_orientations)
+    allocate(up_group_orientations(size(struct%groups)))
+    if(allocated(bot_group_orientations)) deallocate(bot_group_orientations)
+    allocate(bot_group_orientations(size(struct%groups)))
+
+    do i = 1, size(struct%groups)
+        call up_group_orientations(i)%init(bd%DENSITY_R_START, bd%DENSITY_R_END, bd%DENSITY_N_POINTS, bd%BOX_DIMENSIONS, "up_"//trim(adjustl(struct%groups(i)%name))//"_orientation")
+        call bot_group_orientations(i)%init(bd%DENSITY_R_START, bd%DENSITY_R_END, bd%DENSITY_N_POINTS, bd%BOX_DIMENSIONS, "bot_"//trim(adjustl(struct%groups(i)%name))//"_orientation")
+    end do
+end subroutine init_group_orientations
+
+subroutine group_frame_analysis(index)
     implicit none
     integer, intent(in) :: index
-    integer :: i, j
+    integer :: i, j, b, a
     real(real64), dimension(2) :: is_ret
-    real(real64), dimension(3) :: com
+    real(real64), dimension(3) :: com, diff
+    real(real64) :: orientation
 
     !TODO the openmp approach like this is permitted by ifx, but highly nonstandard
     !density of structgroup
@@ -141,14 +162,36 @@ subroutine get_group_density(index)
         com = com / struct%groups(index)%sfg_units(i)%n_unique_bases
 
         is_ret = instasurf%get_distances(com, bd)
+        
+        ! density of SFG units
         call up_group_densities(index)%add_point(is_ret(2), 1.0_real64)
         call bot_group_densities(index)%add_point(is_ret(1), 1.0_real64)
 
+        !orientation of chromophores
+        do j = 1, size(struct%groups(index)%sfg_units(i)%chromophores(:))
+            !get orientation of each chromophore
+            b = struct%groups(index)%sfg_units(i)%chromophores(j)%base
+            a = struct%groups(index)%sfg_units(i)%chromophores(j)%actor
+            
+            !unit vector base->actor
+            diff = fr%frame%positions(:,a) - fr%frame%positions(:,b)
+            diff = pbc_minimum_image(diff, bd)
+            diff = diff / norm2(diff)
+            
+            !dot product with Z axis gives cosine of angle between base->actor and Z axis
+            orientation = dot_product(Z_AXIS, diff)
+            
+            call up_group_orientations(index)%add_point(is_ret(2), -orientation)
+            call bot_group_orientations(index)%add_point(is_ret(1), orientation)
+        end do 
+        
     end do
     !!$omp end parallel do
     !end associate
     call up_group_densities(index)%next_frame()
     call bot_group_densities(index)%next_frame()
+    call up_group_orientations(index)%next_frame()
+    call bot_group_orientations(index)%next_frame()
 end subroutine
 
 subroutine finalize()
@@ -164,6 +207,8 @@ subroutine finalize()
     do gr = 1, size(struct%groups)
         call up_group_densities(gr)%write_file()
         call bot_group_densities(gr)%write_file()
+        call up_group_orientations(gr)%write_file()
+        call bot_group_orientations(gr)%write_file()
     end do
 end subroutine finalize
 
