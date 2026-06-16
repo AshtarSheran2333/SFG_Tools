@@ -177,6 +177,7 @@ module SFG_STRUCTURE
 
     contains
         procedure, public :: read_structure
+        procedure, public :: has_group
 
         procedure, private :: clear_structure
         procedure, private :: append_group
@@ -706,6 +707,24 @@ module SFG_STRUCTURE
         res = 0
     end function read_structure
     
-    !here probably some functions to work over some allocatable arrays returning allocated array with the groups ???
-    
+    !check whether the structure contains a certain group
+    !returns > 0 - group number corresponding to name
+    !returns < 1 - group with correponding name does not exist
+    function has_group(this, name) result(res)
+        class(sfg_structure_type), intent(inout) :: this
+        character(*), intent(in) :: name
+        integer :: i, res
+        
+        res = -1
+        
+        do i = 1, size(this%groups)
+            if( trim(adjustl(name)) == trim(adjustl(this%groups(i)%name)) ) then
+                !group found
+                res = i
+                return
+            end if
+        end do
+        
+    end function has_group
+
 end module
