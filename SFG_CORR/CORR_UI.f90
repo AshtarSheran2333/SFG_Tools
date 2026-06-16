@@ -25,7 +25,11 @@ module CORR_UI
     integer(kind=int8), protected ::    ui_filetype = ui_filetype_none
 
     character(len=128), protected ::    ui_filename1 = "",&
-                                        ui_filename2 = ""
+                                        ui_filename2 = "",&
+                                        ui_selected_group_name = ""
+
+    integer(int8), dimension(:), allocatable, protected :: ui_layer_selection
+    
 
     contains
     
@@ -82,6 +86,7 @@ module CORR_UI
         character(len=256) :: op, arg, arg1
         character :: option
         integer :: i
+        integer(int64) :: L1, L2, j
 
         call print_art()
         write(output_unit,f_line) heading(wavy_pattern,"Evaluation of the program options")
@@ -128,7 +133,6 @@ module CORR_UI
                             allocate(xyz_frame_reader :: fr)
                             error_io_check(fr%open_file(ui_filename1, ui_filename2), "unable to open files "//ui_filename1//" "//ui_filename2)
                         else
-                            !TODO just positions are sufficient
                             error_stop("program needs positions and velocities .xyz files")
                         end if
                     ! INPUT TRR
@@ -150,6 +154,41 @@ module CORR_UI
                         error_stop("Unknown input file format: "//trim(arg))
                     end if
                     i = i + 1
+
+                case ('g')
+                    write(output_unit,f_line) "-G(group):"
+                    call get_switch_string(i, op, ui_selected_group_name)
+                    write(output_unit,f_1tab) "selected group: "//trim(ui_selected_group_name)
+                    write(output_unit,f_1tab) ""
+                    i = i + 1
+                case ('l')
+                    write(output_unit,f_line) "-L(layers):"
+                    call get_switch_int64(i, op, L1)
+                    call get_switch_int64(i, op, L2)
+
+                    if(L1 < 0) L1 = 0
+                    if(L2 < 0) L2 = 0
+                    if(L1 > 15) L1 = 15
+                    if(L2 > 15) L2 = 15
+                    
+                    if(L1 > L2) then
+                        L1 = ieor(L1, L2)
+                        L2 = ieor(L1, L2)
+                        L1 = ieor(L1, L2)
+                    end if
+
+                    if(allocated(ui_layer_selection)) deallocate(ui_layer_selection)
+                    allocate(ui_layer_selection(L2-L1+1))
+                    
+                    write(output_unit,f_1tab) "selected layers: "
+                    write(output_unit,f_1tab,advance = 'no') ""
+                    do j = 0, L2-L1
+                        ui_layer_selection(j+1) = L1 + j
+                        write(output_unit,"(I2,' ')",advance = 'no') L1 + j
+                    end do
+
+                    write(output_unit,f_line) ""
+                    i = i + 1
                 case default
                     write(output_unit,f_line) trim(op)//" skipped - invalid option"
                     write(output_unit,f_line) ""
@@ -163,6 +202,14 @@ module CORR_UI
         ! check if all the mandatory options were selected
         if(ui_filetype == ui_filetype_none) then
             error_stop("input file(s) must be specified, see help -h")
+        end if
+
+        if(ui_selected_group_name == "") then
+            error_stop("group must be selected by -G(group) <name> option")
+        end if
+
+        if(.not. allocated(ui_layer_selection)) then
+            error_stop("layers to be analysed must be selected by -L(layer) <from> <to> option")
         end if
 
         write(output_unit,f_line) heading(flat_pattern,"Evaluation of the program options - DONE")

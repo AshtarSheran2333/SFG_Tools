@@ -28,22 +28,20 @@ type(correlation_function_type) ::                          cf
 
 integer(int64) ::                                           step
 
-integer(int8), dimension(:), allocatable ::                 layer_selection
-
 integer :: grp = 9
 
 !evaluate program options
 call evaluate_program_options(fr)
-allocate(layer_selection(3))
-layer_selection(1) = 0
-layer_selection(2) = 1
-layer_selection(3) = 2
 
 !read BOXDATA
 call bd%read_boxdata()
 
 !read structure
 error_io_check(struct%read_structure("struct.txt"), "unable to read structure file")
+
+!find selected layer
+grp = struct%has_group(ui_selected_group_name)
+if(grp < 1) error_stop("struct.txt does not contain group with name: "//trim(adjustl(ui_selected_group_name)))
 
 !parameters db
 call parameters%init()
@@ -72,9 +70,9 @@ do step = 1, bd%NSTEP
 
     !self_skip
     if( (mod(step, bd%SELF_SKIP) == 1) .or. (bd%SELF_SKIP == 1) ) then
-        call cf%calculate_step(fr%frame, struct%groups(grp), binder%binder_groups(grp), parameters, layer_selection, bd) 
+        call cf%calculate_step(fr%frame, struct%groups(grp), binder%binder_groups(grp), parameters, ui_layer_selection, bd) 
     else
-        call cf%skip_step(fr%frame, struct%groups(grp), binder%binder_groups(grp), parameters, layer_selection, bd) 
+        call cf%skip_step(fr%frame, struct%groups(grp), binder%binder_groups(grp), parameters, ui_layer_selection, bd) 
     end if
     !print progress
     call print_main_loop_progress(step, bd%NSTEP)
