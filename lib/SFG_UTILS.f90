@@ -103,11 +103,11 @@ subroutine Fourier_transform(c_t, dt, domega, omega_max, c_omega, filter)
                 weight = 1.0_real64
                 if(n == 1 .or. n == nt) weight = 0.5_real64
 
-                c_omega(j) = c_omega(j) + weight * f * c_t(n) * exp(-iunit * omega * t)
+                c_omega(j) = c_omega(j) + weight * f * c_t(n) * exp(iunit * omega * t)
 
             end do
 
-            c_omega(j) = c_omega(j) * dt_si
+            c_omega(j) = -iunit * c_omega(j) * dt / omega
 
         end do
 

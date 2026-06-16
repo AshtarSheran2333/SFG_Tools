@@ -101,7 +101,7 @@ subroutine testing_finalize
     open(84, file = "spectrum.dat", recl=128)
     open(85, file = "corr.dat", recl = 128)
     do i = 1, size(spectrum)
-        spectrum(i) = spectrum(i) * (-iunit) / (k_b * bd%TEMPERATURE * (i-1) * bd%DFREQ * 2.0_real64 * pi * c) 
+        spectrum(i) = spectrum(i) / (k_b * bd%TEMPERATURE) 
         write(84, *) (i-1)*bd%DFREQ, real(spectrum(i)), imag(spectrum(i))
     end do
 
