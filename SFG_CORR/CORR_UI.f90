@@ -26,7 +26,8 @@ module CORR_UI
 
     character(len=128), protected ::    ui_filename1 = "",&
                                         ui_filename2 = "",&
-                                        ui_selected_group_name = ""
+                                        ui_selected_group_name = "",&
+                                        ui_output_name = ""
 
     integer(int8), dimension(:), allocatable, protected :: ui_layer_selection
     
@@ -111,7 +112,7 @@ module CORR_UI
             select case(option)
                 case('i')
                     write(output_unit,f_line) "-I(input):"
-                    call get_switch_string(i, op, arg)
+                    call get_switch_string(i, option, arg)
                     ! INPUT GRO
                     if(index(arg, '.gro') .ne. 0) then
                         write(output_unit, f_1tab) ".gro multiple frame file: "//trim(arg)
@@ -122,7 +123,7 @@ module CORR_UI
                         error_io_check(fr%open_file(ui_filename1), "unable to open "//ui_filename1)
                     ! INPUT XYZ
                     else if(index(arg, '.xyz') .ne. 0) then
-                        call get_switch_string(i, op, arg1)
+                        call get_switch_string(i, option, arg1)
                         if(index(arg1, '.xyz') .ne. 0) then
                             write(output_unit,f_1tab) ".xyz position file: "//trim(arg)
                             write(output_unit,f_1tab) ".xyz velocity file: "//trim(arg1)
@@ -137,7 +138,7 @@ module CORR_UI
                         end if
                     ! INPUT TRR
                     else if(index(arg, '.trr') .ne. 0) then
-                        call get_switch_string(i, op, arg1)
+                        call get_switch_string(i, option, arg1)
                         if(index(arg1, '.gro') .ne. 0) then
                             write(output_unit,f_1tab) ".trr trajectory file: "//trim(arg)
                             write(output_unit,f_1tab) ".gro atleast single frame file: "//trim(arg1)
@@ -157,14 +158,15 @@ module CORR_UI
 
                 case ('g')
                     write(output_unit,f_line) "-G(group):"
-                    call get_switch_string(i, op, ui_selected_group_name)
+                    call get_switch_string(i, option, ui_selected_group_name)
                     write(output_unit,f_1tab) "selected group: "//trim(ui_selected_group_name)
                     write(output_unit,f_1tab) ""
                     i = i + 1
+
                 case ('l')
                     write(output_unit,f_line) "-L(layers):"
-                    call get_switch_int64(i, op, L1)
-                    call get_switch_int64(i, op, L2)
+                    call get_switch_int64(i, option, L1)
+                    call get_switch_int64(i, option, L2)
 
                     if(L1 < 0) L1 = 0
                     if(L2 < 0) L2 = 0
@@ -188,11 +190,21 @@ module CORR_UI
                     end do
 
                     write(output_unit,f_line) ""
+                    write(output_unit,f_line) ""
                     i = i + 1
+
+                case ('o')
+                    write(output_unit,f_line) "-O(output):"
+                    call get_switch_string(i, option, ui_output_name)
+                    write(output_unit,f_1tab) "output name: "//trim(adjustl(ui_output_name))
+                    write(output_unit,f_line) ""
+                    i = i + 1
+
                 case default
                     write(output_unit,f_line) trim(op)//" skipped - invalid option"
                     write(output_unit,f_line) ""
                     i = i + 1
+
             end select
 
             ! all the switches were evaluated
