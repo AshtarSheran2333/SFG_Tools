@@ -8,7 +8,7 @@ module SFG_STRUCTURE
 
 #include "utils_error_macros.h"
 
-    !------------------the chromophore model example---------------------------
+    !------------------the site model example---------------------------
     !
     !   e.g. simple hydroxyl
     !
@@ -36,25 +36,25 @@ module SFG_STRUCTURE
     !   also note that this type just points to the actual atoms of the
     !   FRAME_READERS module
     !
-    !   The chromophore can have none of the references, then reference for calculations
+    !   The site can have none of the references, then reference for calculations
     !   must be somehow preselected, e.g. Z axis
     !
     !       base -> C - H <- actor
     !
-    !   the chromophore is the smallest "unit of spectrum" that we can get
-    !   the chromophore should carry information about what set of parameters will be used for the A - M calculation
+    !   the site is the smallest "unit of spectrum" that we can get
+    !   the site should carry information about what set of parameters will be used for the A - M calculation
     !
     !--------------------------------------------------------------------------
-    type sfg_chromophore_type
+    type sfg_site_type
         integer :: actor
         integer :: base
         integer :: parameters_id
         integer, allocatable, dimension(:) :: references
-    end type sfg_chromophore_type
+    end type sfg_site_type
     
     !--------------------------------------------------------------------------
     !
-    !   The SFG unit can contain any number of chromophores
+    !   The SFG unit can contain any number of sites
     !
     !   e.g. water:
     !   H1 - actor
@@ -67,14 +67,14 @@ module SFG_STRUCTURE
     !
     !--------------------------------------------------------------------------
     type sfg_unit_type
-        type(sfg_chromophore_type), allocatable, dimension(:) :: chromophores
+        type(sfg_site_type), allocatable, dimension(:) :: sites
         integer(kind = int32) :: n_unique_bases
         integer, dimension(:), allocatable :: unique_bases !holds unique bases -> simpler density calculations...
     
     contains
     
         procedure, public :: fill_unique_bases
-        procedure, public :: append_chromophore
+        procedure, public :: append_site
         procedure, public :: get_AM
     end type sfg_unit_type
     
@@ -82,7 +82,7 @@ module SFG_STRUCTURE
     !
     !   the input should look like this:
     !
-    !   chromophore:
+    !   site:
     !   PAR_ID  BASE    ACTOR   REFERENCE(S) - up to 10
     !   ID      ID      ID      ID  ... ID
     !
@@ -91,39 +91,39 @@ module SFG_STRUCTURE
     !   ID      ID  ID  ID
     !
     !   a special group for hydroxyls ($HYDROXYLS):
-    !   chromophore
-    !   chromophore
+    !   site
+    !   site
     !
     !   a special group for other ($OTHER)
-    !   - where user can specify groups as a set of chromophores
+    !   - where user can specify groups as a set of sites
     !   - the group can have a name, the groups with the same name will be stored in a separate list
     !   $GROUP          -
-    !   chromophore     |
-    !   chromophore     |---- default group
-    !   chromophore     |
+    !   site     |
+    !   site     |---- default group
+    !   site     |
     !   $GROUP          -
-    !   chromophore     ----- simple chromophore (default group)
+    !   site     ----- simple site (default group)
     !   $GROUP CH3      -
-    !   chromophore     |
-    !   chromophore     |---- CH3 group
-    !   chromophore     |
+    !   site     |
+    !   site     |---- CH3 group
+    !   site     |
     !   $GROUP CH3      -
-    !   chromophore     ----- simple chromophore (default group)
-    !   chromophore     ----- simple chromophore (default group)
-    !   chromophore     ----- simple chromophore (default group)
+    !   site     ----- simple site (default group)
+    !   site     ----- simple site (default group)
+    !   site     ----- simple site (default group)
     !   $GROUP CH3      -
-    !   chromophore     |
-    !   chromophore     |---- CH3 group
-    !   chromophore     |
+    !   site     |
+    !   site     |---- CH3 group
+    !   site     |
     !   $GROUP          -
     !   $GROUP MONSTER  -
-    !   chromophore     |
-    !   chromophore     |
-    !   chromophore     |
-    !   chromophore     |---- MONSTER group
-    !   chromophore     |
-    !   chromophore     |
-    !   chromophore     |
+    !   site     |
+    !   site     |
+    !   site     |
+    !   site     |---- MONSTER group
+    !   site     |
+    !   site     |
+    !   site     |
     !   $GROUP          -
     !
     !   this should yield a structure:
@@ -181,7 +181,7 @@ module SFG_STRUCTURE
         procedure, private :: clear_structure
         procedure, private :: append_group
         procedure, private :: read_water
-        procedure, private :: read_simple_chromophore
+        procedure, private :: read_simple_site
         procedure, private :: read_other
 
         procedure, private :: get_reader_state
@@ -212,23 +212,23 @@ module SFG_STRUCTURE
         this%n_unique_bases = 0
 
         !go through all the bases of SFG unit
-        do i = 1, size(this%chromophores)
+        do i = 1, size(this%sites)
             if(.not. allocated(this%unique_bases)) then !first iteration
                 allocate(this%unique_bases(1))
-                this%unique_bases(1) = this%chromophores(i)%base
+                this%unique_bases(1) = this%sites(i)%base
                 this%n_unique_bases = 1
                 cycle
             end if
 
             !is this base unique?
-            exists = any(this%unique_bases == this%chromophores(i)%base) 
+            exists = any(this%unique_bases == this%sites(i)%base) 
             if(exists) cycle
             
             !found unique base - append unique_bases
             allocate(temp_unique_bases(this%n_unique_bases + 1))
             
             temp_unique_bases(1:this%n_unique_bases) = this%unique_bases
-            temp_unique_bases(this%n_unique_bases + 1) = this%chromophores(i)%base
+            temp_unique_bases(this%n_unique_bases + 1) = this%sites(i)%base
             
             call move_alloc(from = temp_unique_bases, to = this%unique_bases)
             this%n_unique_bases = this%n_unique_bases + 1
@@ -298,10 +298,10 @@ module SFG_STRUCTURE
         inquire(this%file, opened = is_open)
         if(.not. is_open) return
         
-        if(allocated(sfg_unit%chromophores)) deallocate(sfg_unit%chromophores)
-        allocate(sfg_unit%chromophores(2))
-        allocate(sfg_unit%chromophores(1)%references(1))
-        allocate(sfg_unit%chromophores(2)%references(1))
+        if(allocated(sfg_unit%sites)) deallocate(sfg_unit%sites)
+        allocate(sfg_unit%sites(2))
+        allocate(sfg_unit%sites(1)%references(1))
+        allocate(sfg_unit%sites(2)%references(1))
 
         read(this%file, "(A)", iostat = ierr) line
         res = -2; if(ierr .ne. 0) return
@@ -315,17 +315,17 @@ module SFG_STRUCTURE
             return
         end if
 
-        sfg_unit%chromophores(1)%parameters_id = ids(1)
-        sfg_unit%chromophores(2)%parameters_id = ids(1)
+        sfg_unit%sites(1)%parameters_id = ids(1)
+        sfg_unit%sites(2)%parameters_id = ids(1)
         
-        sfg_unit%chromophores(1)%base = ids(2)
-        sfg_unit%chromophores(2)%base = ids(2)
+        sfg_unit%sites(1)%base = ids(2)
+        sfg_unit%sites(2)%base = ids(2)
         
-        sfg_unit%chromophores(1)%actor = ids(3)
-        sfg_unit%chromophores(2)%actor = ids(4)
+        sfg_unit%sites(1)%actor = ids(3)
+        sfg_unit%sites(2)%actor = ids(4)
 
-        sfg_unit%chromophores(1)%references(1) = ids(4)
-        sfg_unit%chromophores(2)%references(1) = ids(3)
+        sfg_unit%sites(1)%references(1) = ids(4)
+        sfg_unit%sites(2)%references(1) = ids(3)
 
         if(maxval(ids(2:)) > this%max_atom_index) this%max_atom_index = maxval(ids(2:))
         res = 0
@@ -334,13 +334,13 @@ module SFG_STRUCTURE
     ! result = 0 - OK
     ! result = -1 - incomplete group
     ! result = -2 - IO error
-    function read_simple_chromophore(this, sfg_unit) result(res)
+    function read_simple_site(this, sfg_unit) result(res)
         implicit none
         class(sfg_structure_type), intent(inout) :: this
         type(sfg_unit_type), intent(inout) :: sfg_unit
         integer :: res
-        integer, parameter :: max_chromophore_references = 12
-        integer, dimension(max_chromophore_references) :: ids
+        integer, parameter :: max_site_references = 12
+        integer, dimension(max_site_references) :: ids
         integer :: i, ierr
         character(128) :: line
         logical :: is_open
@@ -349,61 +349,61 @@ module SFG_STRUCTURE
         inquire(this%file, opened = is_open)
         if(.not. is_open) return
         
-        if(allocated(sfg_unit%chromophores)) deallocate(sfg_unit%chromophores)
-        allocate(sfg_unit%chromophores(1))
+        if(allocated(sfg_unit%sites)) deallocate(sfg_unit%sites)
+        allocate(sfg_unit%sites(1))
 
         read(this%file, "(A)", iostat = ierr) line
         res = -2; if(ierr .ne. 0) return
         this%line_number = this%line_number + 1
 
         ids = 0
-        read(line, *, iostat = ierr) (ids(i), i = 1, max_chromophore_references)
-        if(count(ids .ne. 0) < 3) then !incomplete chromophore - must have PAR_ID, ACTOR, BASE
+        read(line, *, iostat = ierr) (ids(i), i = 1, max_site_references)
+        if(count(ids .ne. 0) < 3) then !incomplete site - must have PAR_ID, ACTOR, BASE
             backspace(this%file)
             this%line_number = this%line_number - 1
             res = -1
             return
         end if
 
-        sfg_unit%chromophores(1)%parameters_id = ids(1)
+        sfg_unit%sites(1)%parameters_id = ids(1)
 
-        sfg_unit%chromophores(1)%base = ids(2)
+        sfg_unit%sites(1)%base = ids(2)
         
-        sfg_unit%chromophores(1)%actor = ids(3)
+        sfg_unit%sites(1)%actor = ids(3)
 
         !any references?
         i = i - 1 !i was incremented by extra one to either finish the loop or when read failed
         if( (i-3) .gt. 0 ) then 
-            allocate(sfg_unit%chromophores(1)%references(i-3))
-            sfg_unit%chromophores(1)%references = ids(4:i)
+            allocate(sfg_unit%sites(1)%references(i-3))
+            sfg_unit%sites(1)%references = ids(4:i)
         end if
         
         if(maxval(ids(2:i)) > this%max_atom_index) this%max_atom_index = maxval(ids(2:i))
         res = 0
-    end function read_simple_chromophore
+    end function read_simple_site
 
-    subroutine append_chromophore(this, sfg_chromophore)
+    subroutine append_site(this, sfg_site)
         implicit none
         class(sfg_unit_type), intent(inout) :: this
-        type(sfg_chromophore_type), intent(in) :: sfg_chromophore
-        type(sfg_chromophore_type), dimension(:), allocatable :: temp_chromophores
-        integer :: n_chromophores
+        type(sfg_site_type), intent(in) :: sfg_site
+        type(sfg_site_type), dimension(:), allocatable :: temp_sites
+        integer :: n_sites
         
-        if(.not. allocated(this%chromophores)) then
-            allocate(this%chromophores(1))
-            this%chromophores(1) = sfg_chromophore
+        if(.not. allocated(this%sites)) then
+            allocate(this%sites(1))
+            this%sites(1) = sfg_site
             return
         end if
         
-        n_chromophores = size(this%chromophores)
+        n_sites = size(this%sites)
 
-        allocate(temp_chromophores(n_chromophores + 1))
-        temp_chromophores(1:n_chromophores) = this%chromophores
-        temp_chromophores(n_chromophores + 1) = sfg_chromophore
+        allocate(temp_sites(n_sites + 1))
+        temp_sites(1:n_sites) = this%sites
+        temp_sites(n_sites + 1) = sfg_site
         
-        deallocate(this%chromophores)
-        call move_alloc(from=temp_chromophores, to=this%chromophores)
-    end subroutine append_chromophore
+        deallocate(this%sites)
+        call move_alloc(from=temp_sites, to=this%sites)
+    end subroutine append_site
     
     !gets A and M of SFG unit
     function get_AM(this, frame, param_db, boxdata) result(res)
@@ -423,22 +423,22 @@ module SFG_STRUCTURE
         A = 0
         M = 0
         
-        !loop over the chromophores
-        do n = 1, size(this%chromophores)    
-            if( (this%chromophores(n)%parameters_id > param_db%count) .or. &
-                (this%chromophores(n)%parameters_id > param_db%count) ) &
+        !loop over the sites
+        do n = 1, size(this%sites)    
+            if( (this%sites(n)%parameters_id > param_db%count) .or. &
+                (this%sites(n)%parameters_id > param_db%count) ) &
                 error_stop("invalid parameters_id") !TODO this should be checked somewhere else...
 
             !CONSTRUCT D MATRIX
             !solve actor - base vector
-            u = frame%positions(:,this%chromophores(n)%actor) - frame%positions(:,this%chromophores(n)%base)
+            u = frame%positions(:,this%sites(n)%actor) - frame%positions(:,this%sites(n)%base)
             u = pbc_minimum_image(u, boxdata)
             r = norm2(u)
             ! z component
             D(:,3) = u / r
 
             !solve base-reference vector
-            i = size(this%chromophores(n)%references)
+            i = size(this%sites(n)%references)
             if(i == 0) then
                 !no base -> use -Z
                 v = (/0.0, 0.0, -1.0/)
@@ -446,7 +446,7 @@ module SFG_STRUCTURE
                 !average the bases
                 v = 0
                 do ref = 1, i
-                    diff = frame%positions(:,this%chromophores(n)%references(ref)) - frame%positions(:,this%chromophores(n)%base)
+                    diff = frame%positions(:,this%sites(n)%references(ref)) - frame%positions(:,this%sites(n)%base)
                     diff = pbc_minimum_image(diff, boxdata)
                     v = v + diff
                 end do
@@ -481,13 +481,13 @@ module SFG_STRUCTURE
             !TODO end construct D matrix subroutine
 
             !get vz
-            diff = frame%velocities(:,this%chromophores(n)%actor) - frame%velocities(:,this%chromophores(n)%base)
+            diff = frame%velocities(:,this%sites(n)%actor) - frame%velocities(:,this%sites(n)%base)
             vz = dot_product(diff,D(:,3))
 
             !TODO calculate the A M
             !M_R
             do i=1,3     ! do on x,y,z
-                associate( dMdrz => param_db%dMdrz_record(this%chromophores(n)%parameters_id)%elements(i) )
+                associate( dMdrz => param_db%dMdrz_record(this%sites(n)%parameters_id)%elements(i) )
                 M = M + ( D(boxdata%R,i) * dMdrz * vz )
                 end associate
             end do
@@ -495,7 +495,7 @@ module SFG_STRUCTURE
             !A_PQ
             do i=1,3     ! do on x,y,z
                 do j=1,3     ! do on x,y,z
-                    associate( dAdrz => param_db%dAdrz_record(this%chromophores(n)%parameters_id)%elements(i,j) )
+                    associate( dAdrz => param_db%dAdrz_record(this%sites(n)%parameters_id)%elements(i,j) )
                     A = A +( D(boxdata%P,i) * dAdrz * D(boxdata%Q,j) * vz )
                     end associate
                 end do
@@ -519,13 +519,13 @@ module SFG_STRUCTURE
         inquire(this%file, opened = is_open)
         if(.not. is_open) return
         
-        if(allocated(sfg_unit%chromophores)) then
-            res = this%read_simple_chromophore(temp_sfg_unit)
+        if(allocated(sfg_unit%sites)) then
+            res = this%read_simple_site(temp_sfg_unit)
             if(res .ne. 0) return
-            call sfg_unit%append_chromophore(temp_sfg_unit%chromophores(1))
+            call sfg_unit%append_site(temp_sfg_unit%sites(1))
         else
-            !read simple chromophore
-            res = this%read_simple_chromophore(sfg_unit)
+            !read simple site
+            res = this%read_simple_site(sfg_unit)
             if(res .ne. 0) return
         end if
     end function read_other
@@ -636,9 +636,9 @@ module SFG_STRUCTURE
                         read_state = STATE_WATERS
                         cycle
                     end if
-                    deallocate(sfg_unit%chromophores) !switch state
+                    deallocate(sfg_unit%sites) !switch state
                 case (STATE_HYDROXYLS)
-                    ret = this%read_simple_chromophore(sfg_unit)    
+                    ret = this%read_simple_site(sfg_unit)    
                     if(ret .eq. -2) exit !IO error - get out of the loop
                     if(ret .eq. 0) then !append group and continue reading
                         call this%append_group("$HYDROXYLS", sfg_unit)
@@ -650,15 +650,15 @@ module SFG_STRUCTURE
                         read_state = STATE_HYDROXYLS
                         cycle
                     end if
-                    deallocate(sfg_unit%chromophores) !switch state
+                    deallocate(sfg_unit%sites) !switch state
                 case (STATE_OTHER)
                     if(.not. reading_group) then
                         ret = this%read_other(sfg_unit)    
                         if(ret .eq. -2) exit !IO error - get out of the loop
                         if(ret .eq. 0) then !append group and continue reading
-                            !simple chromophore without group
+                            !simple site without group
                             call this%append_group("$OTHER", sfg_unit)
-                            if(allocated(sfg_unit%chromophores)) deallocate(sfg_unit%chromophores)
+                            if(allocated(sfg_unit%sites)) deallocate(sfg_unit%sites)
                             cycle
                         end if
                         read_state = this%get_reader_state(groupname)
@@ -669,14 +669,14 @@ module SFG_STRUCTURE
                                 reading_group = .not. reading_group
                             end if
                             read_state = STATE_OTHER
-                            if(allocated(sfg_unit%chromophores)) deallocate(sfg_unit%chromophores)
+                            if(allocated(sfg_unit%sites)) deallocate(sfg_unit%sites)
                             cycle
                         end if
-                        if(allocated(sfg_unit%chromophores)) deallocate(sfg_unit%chromophores) !another state
+                        if(allocated(sfg_unit%sites)) deallocate(sfg_unit%sites) !another state
                     else
                         ret = this%read_other(sfg_unit)    
                         if(ret .eq. -2) exit !IO error - get out of the loop
-                        if(ret .eq. 0) cycle !chromophores appended 
+                        if(ret .eq. 0) cycle !sites appended 
                         read_state = this%get_reader_state(groupname)
                         if(read_state < 0) exit !IO error - get out of the loop
                         if(read_state <= STATE_NONE) then !just a garbage line, continue reading
@@ -686,7 +686,7 @@ module SFG_STRUCTURE
                                 if(len_trim(current_groupname) == 0) current_groupname = "$OTHER"
                                 call this%append_group(current_groupname, sfg_unit)
                                 reading_group = .not. reading_group
-                                if(allocated(sfg_unit%chromophores)) deallocate(sfg_unit%chromophores)
+                                if(allocated(sfg_unit%sites)) deallocate(sfg_unit%sites)
                             end if
                             read_state = STATE_OTHER
                             cycle
@@ -695,7 +695,7 @@ module SFG_STRUCTURE
                             res = -1 !wrong format
                             return
                         end if
-                        if(allocated(sfg_unit%chromophores)) deallocate(sfg_unit%chromophores) !another state
+                        if(allocated(sfg_unit%sites)) deallocate(sfg_unit%sites) !another state
                     end if
                 case default
                     error_stop("ERROR: read_struct state machine error")

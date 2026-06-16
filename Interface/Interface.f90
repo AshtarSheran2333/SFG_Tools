@@ -167,11 +167,11 @@ subroutine group_frame_analysis(index)
         call up_group_densities(index)%add_point(is_ret(2), 1.0_real64)
         call bot_group_densities(index)%add_point(is_ret(1), 1.0_real64)
 
-        !orientation of chromophores
-        do j = 1, size(struct%groups(index)%sfg_units(i)%chromophores(:))
-            !get orientation of each chromophore
-            b = struct%groups(index)%sfg_units(i)%chromophores(j)%base
-            a = struct%groups(index)%sfg_units(i)%chromophores(j)%actor
+        !orientation of sites
+        do j = 1, size(struct%groups(index)%sfg_units(i)%sites(:))
+            !get orientation of each site
+            b = struct%groups(index)%sfg_units(i)%sites(j)%base
+            a = struct%groups(index)%sfg_units(i)%sites(j)%actor
             
             !unit vector base->actor
             diff = fr%frame%positions(:,a) - fr%frame%positions(:,b)
