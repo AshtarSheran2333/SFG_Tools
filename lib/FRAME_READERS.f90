@@ -2,8 +2,9 @@ module FRAME_READERS
     use, intrinsic :: iso_fortran_env, only: real64, int64, int32, real32
     implicit none
 
-    real(real64), parameter ::                              nmpps_to_hartree = 21.876912635 !nm/ps -> a_0*E_h/(reduced planck)
-    real(real64), parameter ::                              nm_to_angstrom = 10
+    real(real64), parameter ::                              hartree_velocity_to_a_fs = 21.876912635_real64 !a_0*E_h/(reduced planck) to A/fs
+    real(real64), parameter ::                              nm_to_angstrom = 10_real64
+    real(real64), parameter ::                              nm_ps_to_a_fs = 0.01_real64
 
     type :: current_frame_type
         !TODO make positions and velocities a type...

@@ -141,7 +141,7 @@ submodule (FRAME_READERS) GRO_READER
         !convert the positions
         this%frame%positions = this%frame%positions * nm_to_angstrom
         !convert the velocities
-        if(this%frame%has_velocities) this%frame%velocities = this%frame%velocities * nmpps_to_hartree
+        if(this%frame%has_velocities) this%frame%velocities = this%frame%velocities * nm_ps_to_a_fs
 
         !read the box size - just discard it
         read(this%file, *, iostat = ierr) box

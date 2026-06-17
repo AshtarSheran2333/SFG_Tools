@@ -317,7 +317,7 @@ submodule (FRAME_READERS) TRR_READER
         if(ierr .ne. 0) return !something went wrong
 
         !convert the velocities
-        this%frame%velocities = this%frame%velocities * nmpps_to_hartree
+        this%frame%velocities = this%frame%velocities * nm_ps_to_a_fs
 
         this%frame%has_velocities = .true.
         res = .true.

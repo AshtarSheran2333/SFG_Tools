@@ -211,6 +211,7 @@ submodule (FRAME_READERS) XYZ_READER
         end if
 
         !TODO - now expecting that the atomnames match... (it should be checked)
+        !TODO the implicit loops might not work properly...
         if(this%frame%has_velocities) then
             read(this%file, *, iostat = ierr) (this%frame%names(i), this%frame%positions(:,i), i = 1, this%frame%n_atoms)
             res = ierr; if(ierr .ne. 0) return
@@ -221,6 +222,7 @@ submodule (FRAME_READERS) XYZ_READER
             res = ierr; if(ierr .ne. 0) return
         end if
 
+        this%frame%velocities = this%frame%velocities * hartree_velocity_to_a_fs
         this%frame%frame_number = this%frame%frame_number + 1
         res = 0
         return
