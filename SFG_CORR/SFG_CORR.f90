@@ -102,6 +102,7 @@ subroutine finalize
     close(corr_file)
 
     call Fourier_transform(normalized_corr, bd%DT, bd%DFREQ, bd%FREQ, spectrum, bd%FILTER)
+    spectrum = spectrum - spectrum(size(spectrum))
 
     open(newunit = spectrum_file, file = trim(adjustl(ui_output_name))//"spectrum.dat", recl=128)
 
