@@ -2,9 +2,10 @@ module SFG_CORRELATION
 use, intrinsic :: iso_fortran_env
 use BINDER_FILE, only: group_binder_type
 use BOXDATA, only: boxdata_type
-    use FRAME_READERS, only: current_frame_type
-    use SFG_STRUCTURE, only: sfg_structure_group_type
-    use DXDRZ_DB, only: dXdrz_db_type
+use FRAME_READERS, only: current_frame_type
+use SFG_STRUCTURE, only: sfg_structure_group_type
+use DXDRZ_DB, only: dXdrz_db_type
+use SFG_UTILS, only: e_to_c, debye_to_ea
 implicit none
     
 type correlation_function_type
@@ -21,6 +22,7 @@ type correlation_function_type
         procedure, public :: init
         procedure, public :: calculate_step
         procedure, public :: skip_step
+        procedure, public :: get_normalized
         procedure, private :: fill_history
     end type
     
@@ -164,6 +166,20 @@ type correlation_function_type
         call this%fill_history(current_frame, struct_group, binder, dXdrz_db, layer_selection, boxdata)
 
     end subroutine skip_step
+
+    function get_normalized(this, bd) result(res)
+        class(correlation_function_type), intent(inout) :: this
+        class(boxdata_type), intent(in) :: bd
+        real(real64), allocatable, dimension(:) :: res
+        integer :: i
         
+        allocate(res(size(this%correlation_function)))
+        
+        do i = 1, size(this%correlation_function)
+            res(i) = this%correlation_function(i) * (debye_to_ea * e_to_c) /&
+                (bd%BOX_DIMENSIONS(1) * bd%BOX_DIMENSIONS(2) * 10.0_real64 * max(1,this%norm(i)))
+        end do
+        
+    end function get_normalized
     
 end module SFG_CORRELATION
