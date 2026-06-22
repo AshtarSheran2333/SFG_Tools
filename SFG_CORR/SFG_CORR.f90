@@ -80,40 +80,42 @@ do step = 1, bd%NSTEP
     !TODO some way to print backup - sometimes take the correlation data, FFT -> get the convergence series
 end do !end of the main loop
 
-call testing_finalize()
+call finalize()
 print*, "DONE"
 
     contains
     
-subroutine testing_finalize
+subroutine finalize
     !TODO this needs to be done better, just testing
     complex(real64), dimension(:), allocatable ::               spectrum
-    integer :: i
-    real(real64) :: fp, dt_si, t, f
+    real(real64), dimension(:), allocatable ::                  normalized_corr
+    integer :: i, spectrum_file, corr_file
     
-    do i = 1, size(cf%correlation_function)
-        cf%correlation_function(i) = cf%correlation_function(i) * (debye_to_ea * e_to_c) / (bd%BOX_DIMENSIONS(1) * bd%BOX_DIMENSIONS(2) * 10.0_real64 * max(1,cf%norm(i)))
+    normalized_corr = cf%get_normalized(bd)
+    
+    open(newunit = corr_file, file = trim(adjustl(ui_output_name))//"corr.dat", recl = 128)
+
+    do i = 1, size(normalized_corr)
+        write(corr_file, *) (i-1)*bd%DT, normalized_corr(i), cf%norm(i)
     end do
 
+    close(corr_file)
 
-    call Fourier_transform(cf%correlation_function, bd%DT, bd%DFREQ, bd%FREQ, spectrum, bd%FILTER)
+    call Fourier_transform(normalized_corr, bd%DT, bd%DFREQ, bd%FREQ, spectrum, bd%FILTER)
 
-    open(84, file = "spectrum.dat", recl=128)
-    open(85, file = "corr.dat", recl = 128)
+    open(newunit = spectrum_file, file = trim(adjustl(ui_output_name))//"spectrum.dat", recl=128)
+
     do i = 1, size(spectrum)
         spectrum(i) = spectrum(i) / (k_b * bd%TEMPERATURE) 
-        write(84, *) (i-1)*bd%DFREQ, real(spectrum(i)), imag(spectrum(i))
+        write(spectrum_file, "(5F16.8)") &
+            (i-1)*bd%DFREQ,&
+            real(spectrum(i)),&
+            aimag(spectrum(i)),&
+            abs(spectrum(i)),&
+            atan2(aimag(spectrum(i)), real(spectrum(i)))
     end do
 
-    fp = bd%FILTER * 1e-12 !s
-    dt_si = bd%DT * 1e-15_real64 ! s
-    do i = 1, size(cf%correlation_function)
-        t = (i-1) * dt_si
-        f = exp( - (t*t)/(fp*fp) )
-        write(85, *) (i-1)*bd%DT, cf%correlation_function(i), f, cf%norm(i)
-    end do
-    close(84)
-    close(85)
+    close(spectrum_file)
 
 end subroutine
 !TODO finalize
