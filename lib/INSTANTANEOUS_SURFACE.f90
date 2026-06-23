@@ -5,6 +5,8 @@ module INSTANTANEOUS_SURFACE
     use BOXDATA, only: boxdata_type
     use UTILS_ERROR
     implicit none
+
+    real(real64), parameter, private :: drsq = 0.05
     
 #include "utils_error_macros.h"
     
@@ -18,6 +20,9 @@ module INSTANTANEOUS_SURFACE
         integer(int64), dimension(:,:), allocatable :: bot_index !index of iteration to get the point
 
         integer, private :: instasurf_bin_unit, instasurf_xyz_unit
+
+        real(real64), private :: maxrsq
+        real(real64), dimension(:), allocatable :: kernel_lut
 
     contains
     
@@ -34,6 +39,7 @@ module INSTANTANEOUS_SURFACE
         procedure, public :: read_next
         procedure, public :: close_bin_file
         procedure, public :: close_xyz_file
+        procedure, private :: prepare_kernel_lut
         
     end type instantaneous_surface_type
     
@@ -60,6 +66,7 @@ contains
 
         this%start = bd%box_corner - this%volume_element
         
+        call this%prepare_kernel_lut(bd%coarse_graining_length)
         !allocate containers
         
         associate( i => this%n_points(1), &
@@ -100,11 +107,11 @@ contains
         integer(int32) :: res
         real(real64) :: density_threshold, tollerance
 
-        integer(int64) :: i,j,k,m
+        integer(int64) :: i,j,k,m,kp_idx
         logical :: found_up_interface
         logical :: found_bot_interface
         real(real64), dimension(3) :: pos, prev_pos, diff
-        real(real64) :: rho, rhodiff, prev_rhodiff, r
+        real(real64) :: rho, rhodiff, prev_rhodiff, rsq
 
         density_threshold = bd%liquid_bulk_number_density/2.0
         tollerance = 0.004 !bd%liquid_bulk_number_density * 0.1 - could be like this
@@ -114,7 +121,7 @@ contains
         !$OMP PARALLEL DO &
         !$OMP DEFAULT(NONE) &
         !$OMP SHARED(this, frame, bd, density_threshold, tollerance) &
-        !$OMP PRIVATE(i, j, k, m, found_up_interface, found_bot_interface, pos, prev_pos, diff, rho, rhodiff, prev_rhodiff, r) &
+        !$OMP PRIVATE(i, j, k, m, found_up_interface, found_bot_interface, pos, prev_pos, diff, rho, rhodiff, prev_rhodiff, rsq, kp_idx) &
         !$OMP REDUCTION(+:res)
         do i=1,this%n_points(1)
             res = 0
@@ -140,11 +147,11 @@ contains
                         end associate
                         !pbc correction              
                         diff = pbc_minimum_image(diff, bd)
-                        r = norm2(diff)
-                        !cutoff after 3 sigma, the value would be too small, save some calculation time
-                        if( r <= 3*bd%coarse_graining_length ) then
-                            rho = rho + exp(-r**2/(2*bd%coarse_graining_length**2))/((2*pi*bd%coarse_graining_length**2)**1.5)
-                        end if  
+                        rsq = diff(1) * diff(1) + diff(2) * diff(2) + diff(3) * diff(3)
+                        if(rsq > this%maxrsq) cycle !larger than 3 sigma
+                        !lookup in the table
+                        kp_idx = int(rsq / drsq) + 1
+                        rho = rho + this%kernel_lut(kp_idx)
                     end do
             
                     !shaping the rho
@@ -179,11 +186,11 @@ contains
                         end associate
                         !pbc correction              
                         diff = pbc_minimum_image(diff, bd)
-                        r = norm2(diff)
-                        !cutoff after 3 sigma, the value would be too small, save some calculation time
-                        if( r <= 3*bd%coarse_graining_length ) then
-                            rho = rho + exp(-r**2/(2*bd%coarse_graining_length**2))/((2*pi*bd%coarse_graining_length**2)**1.5)
-                        end if  
+                        rsq = diff(1) * diff(1) + diff(2) * diff(2) + diff(3) * diff(3)
+                        if(rsq > this%maxrsq) cycle !larger than 3 sigma
+                        !lookup in the table
+                        kp_idx = int(rsq / drsq) + 1
+                        rho = rho + this%kernel_lut(kp_idx)
                     end do
 
                     !shaping the rho
@@ -516,5 +523,28 @@ contains
         inquire(this%instasurf_xyz_unit, opened = is_open)
         if(is_open) close(this%instasurf_xyz_unit)
     end subroutine close_xyz_file 
+
+    subroutine prepare_kernel_lut(this, cgl)
+        implicit none
+        class(instantaneous_surface_type), intent(inout) :: this
+        real(real64), intent(in) :: cgl !coarse graining length
+        real(real64), parameter :: sigmas = 3
+        integer :: np, i
+        real(real64) :: r2, cglsq
+        
+        this%maxrsq = (sigmas * cgl)**2
+        np = int(this%maxrsq / drsq) + 1
+        
+        if(allocated(this%kernel_lut)) deallocate(this%kernel_lut)
+        allocate(this%kernel_lut(np))
+
+        cglsq = cgl**2
+        r2 = 0.0_real64
+        do i = 1, np
+            this%kernel_lut(i) = exp(-r2/(2*cglsq))/((2*pi*cglsq)**1.5)
+            r2 = real((i-1), real64) * drsq
+        end do
+        
+    end subroutine
 
 end module
