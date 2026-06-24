@@ -70,7 +70,7 @@ graph LR
 	linkStyle 6 stroke:#000000,color:#003366,stroke-width:1
 	linkStyle 7 stroke:#000000,color:#003366,stroke-width:1
 ```
-The example tajectory can be found on Zenodo: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17588667.svg)](https://doi.org/10.5281/zenodo.17588666) as water/water.trr, complementary water/water.gro is present too. The configuration [BOXDATA file](/documenation/user_guide/files.md/#input-boxdata-file) is also present as water/BOXDATA.
+The example tajectory can be found on Zenodo: [![DOI|44](https://zenodo.org/badge/DOI/10.5281/zenodo.17588667.svg)](https://doi.org/10.5281/zenodo.17588666) as water/water.trr, complementary water/water.gro is present too. The configuration [BOXDATA file](/documenation/user_guide/files.md/#input-boxdata-file) is also present as water/BOXDATA.
 
 1. Go to the downloaded example water/ folder
 ```bash

@@ -24,26 +24,26 @@ The main function of this program is to create a file called [binder.bin](../use
 
 Additional analysis features are described in the subsections [Dipole analysis](#dipole-analysis), and [Hydrogen bond distributions](#hydrogen-bond-distributions).
 
-![layer limits](../.figures/layerlimits.svg)
+![layer limits](../figures/layerlimits.svg)
 
 ## Dipole analysis
 The program allows calculation of average dipole orientation ($\cos(\alpha)$) of water molecules as a function of distance from the [instantaneous surface](../programs_description/Interface.md/#calculation-of-instantaneous-surface). The distance is measured from an interpolated point of the [instantaneous surface](../programs_description/Interface.md/#calculation-of-instantaneous-surface) based on the X-Y position of the molecule. Range and fineness of the calculation can be adjusted by setting [$DIPOLE_R_START](../user_guide/files.md/#table-of-all-boxdata-file-parameters), [$DIPOLE_R_END](../user_guide/files.md/#table-of-all-boxdata-file-parameters), and [$DIPOLE_BINWIDTH](../user_guide/files.md/#table-of-all-boxdata-file-parameters) parameters in [the BOXDATA file](../user_guide/files.md/#input-boxdata-file).
 
-![dipole analysis](../.figures/dipolevsr.svg)
+![dipole analysis](../figures/dipolevsr.svg)
 
 ## Hydrogen bond distributions
 Yet another function of this program is to create [3D histograms](../user_guide/files.md/#histogram_3dhist-optional) for hydrogen bond distribution/orientation, such as *X* axis describes O(-H) $\cdots$ O distance, *Y* axis describes $\cos(\theta)$ (see figure below), and *Z* axis describes probability of occurrence. Range and number of divisions of *X* and *Y* axes can be adjusted by [$HBHIST_DIST_START](../user_guide/files.md/#table-of-all-boxdata-file-parameters), [$HBHIST_DIST_END](../user_guide/files.md/#table-of-all-boxdata-file-parameters), [$HBHIST_DIST_DIV](../user_guide/files.md/#table-of-all-boxdata-file-parameters), [$HBHIST_ANGLE_START](../user_guide/files.md/#table-of-all-boxdata-file-parameters), [$HBHIST_ANGLE_END](../user_guide/files.md/#table-of-all-boxdata-file-parameters), and [$HBHIST_ANGLE_DIV](../user_guide/files.md/#table-of-all-boxdata-file-parameters) parameters.
 
 Definition of the hydrogen bond was adopted from White et al.[^1]; Molecular conformation fulfilling: O(-H) $\cdots$ O distance $\leq$ 3.2 &#197;, and the O-H $\cdots$ O angle in range 140-180 degrees, is considered as hydrogen bond.
 
-![hydrogen bonds](../.figures/hbonds.svg)
+![hydrogen bonds](../figures/hbonds.svg)
 
 > [!NOTE]
 > Interface normal allways points from the water bulk towards the vacuum/surface.
 
 [3D histogram files](../user_guide/files.md/#histogram_3dhist-optional) have 3 columns of *Z* data (see table below). The three columns is a triplet of data: interlayer, intralayer, and total interactions. All the columns of *Z* data are normalized so their sum is equal to 1.
 
-![3D histogram options /CHANGE/](../.figures/3dhistopt.svg)
+![3D histogram options /CHANGE/](../figures/3dhistopt.svg)
 
 counting rules:
 
