@@ -107,15 +107,17 @@ Properties of the **D** matrix (**D** $^T$ = **D** $^{-1}$ ) allows us to easily
 
 ## Calculation of the correlation function of Mz and Axx
 Using equations for dipole moment and polarizability mentioned [here](./SSP_CORR.md/#ssp_corr) we can write:
+>[!NOTE]
+>The equation below is not rendered properly by GitHub Markdown
 
 $$
 			\begin{split}
 				\dot{A}_{PQ}(t)\dot{M}_{R}(0) &
-				= \Biggl\{ \sum^{M}_{m=1} \sum^{N_m}_{n=1} \dot{\alpha}_{mn,PQ}(t) \Biggr\}
-				\Biggl\{ \sum^{M}_{m'=1} \sum^{N_m'}_{n'=1} \dot{\mu}_{m'n',R}(0) \Biggr\} \\
+				= \left\{ \sum^{M}_{m=1} \sum^{N_m}_{n=1} \dot{\alpha}_{mn,PQ}(t) \right\}
+				\left\{ \sum^{M}_{m'=1} \sum^{N_m'}_{n'=1} \dot{\mu}_{m'n',R}(0) \right\} \\
 				&
-				= \Biggl\{ \sum^{M}_{m=1} \Biggl[ \sum^{N_m}_{n=1} \dot{\alpha}_{mn,PQ}(t) \Biggr] \Biggr\}
-				\Biggl\{ \sum^{M}_{m'=1} \Biggl[ \sum^{N_m'}_{n'=1} \dot{\mu}_{m'n',R}(0) \Biggr] \Biggr\} \\
+				= \left\{ \sum^{M}_{m=1} \left[ \sum^{N_m}_{n=1} \dot{\alpha}_{mn,PQ}(t) \right] \right\}
+				\left\{ \sum^{M}_{m'=1} \left[ \sum^{N_m'}_{n'=1} \dot{\mu}_{m'n',R}(0) \right] \right\} \\
 				&
 				= \sum^{M}_{m=1} \sum^{M}_{m'=1} \dot{\alpha}_{m,PQ}(t) \dot{\mu}_{m',R}(0) \\
 				&
@@ -129,6 +131,7 @@ $$
 				= T_{self} + T_{cross}
 			\end{split}
 $$
+
 
 Where $\zeta_L$ is a switching function:
 
