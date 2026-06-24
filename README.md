@@ -15,23 +15,22 @@ Following things needs to be done:
     + [x] struct format parser should be failproof
     + [x] The MOL should have a better name like GROUP
     + [x] User should be able to define multiple GROUP, each GROUP will have an optional name e.g. GROUP CH3
-- [ ] Atleast the important files storing mid calculations should have their own modules with in and out procedures and shared internal structure...
-    + [ ] binder
-    + [ ] interface
-- [ ] There could be a module for hydrogen bond analysis (3D histograms...) it needs fixing anyway
-- [ ] A general density module (can be reused for both density and dipole)
-- [ ] better BOXDATA module
+- [x] Atleast the important files storing mid calculations should have their own modules with in and out procedures and shared internal structure...
+    + [x] binder
+    + [x] interface
+- [x] A general density module (can be reused for both density and dipole)
+- [x] better BOXDATA module
     + [x] better PBC checking (by default origin in 0 0 0, possibility to move the origin...)
 - [ ] Go through the modules and properly setup the interface (public, private, protected, implicit none in all functions and subroutines... hide the internal subroutines etc.)
-    + [x] the functions should have implicit none everywhere
+    + [ ] the functions should have implicit none everywhere
     + [ ] the interface needs to be properly set (private, public routines)
-    + [ ] SFG_STRUCTURE - what a naming madness - needs to be fixed
-- [ ] Incorporate into all programs
-    + [ ] Interface_P (rename to Interface)
+    + [x] SFG_STRUCTURE - what a naming madness - needs to be fixed
+- [x] Incorporate into all programs
+    + [x] Interface_P (rename to Interface)
         - Since we want to calculate W-C interface, something must be done about it, so it is able to work with various mixtures e.g. water + organic ions
         - Since the trajectory can contain also a solid surface, there must be a way how to select the liquid atoms (the heavy ones), for the interface calculation we can keep the same coarse graining length as for water, but do some mass weighting on the contributions
         - another file?? NOBODY IS EVER GOING TO FILL IN THOSE CRAZY INDEX FILES... lol
-    + [ ] Binder_P (rename to Binder)
+    + [x] Binder_P (rename to Binder)
         - there will be two binder files, one for water, second for OTHERS
         - the SFG_STRUCT must then be somehow tied to the binder... so we can catch wheather it has been changed...
         - the molecules or chromophores or whatever "units" of spectrum must be somehow associated to some distance from the interface (probably the COM)
@@ -40,10 +39,19 @@ Following things needs to be done:
 - [ ] The programs should be able to somehow backup the results in case of IO errors
         - The reader modules should assure this - each function returns some kind of return code -> catch those, backup, abort
 - [ ] Start making some tests (probably in form of a special program...)
-- [ ] Work on the CMakeLists.txt
-    + [ ] use the f18 standard flag
-    + [ ] during the cleanup, the code should be more standardized, so possibly working even with gfortran??
+- [x] Work on the CMakeLists.txt
+    + [ ] use the f18 standard flag - cannot do that unless I want to get rid of convert option in open (nonstandard feature to deal with endianness)
+    + [x] during the cleanup, the code should be more standardized, so possibly working even with gfortran??
 - [ ] Update documentation
+
+dropped features:
+- [ ] 3D histograms and hydrogen bond analysis
+- [ ] cross-terms - in case of need use version 1.x.x ... but make sure that the simulation box is centered...
+
+added features:
+- [x] reading all the atoms
+- [x] the bond structure is set by the user - can set almost everything (TBD in docu)
+- [x] code is now modular and can be easily extended (not a spaghetti mess anymore)
 
 # SFG\_TOOLS - sum-frequency generation spectrum analysis toolkit
 
