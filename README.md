@@ -1,5 +1,7 @@
 # SFG\_TOOLS - sum-frequency generation spectrum analysis toolkit
 
+This is just experimental branch that includes a quick ugly modification to allow selection of molecules pointing up or down
+
 Welcome to the **SFG_TOOLS** [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17517850.svg)](https://doi.org/10.5281/zenodo.17517850) documentation.
 
 This set of programs processes trajectories of water molecules and surface hydroxyls to obtain vibrational sum-frequency generation O-H spectra $\chi^{(2)}(\omega)$.
