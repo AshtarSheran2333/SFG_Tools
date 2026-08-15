@@ -118,7 +118,9 @@ integer ::                                                  ierr,&
 logical ::                                                  nocheck = .false.,&
 															skip_this,&
 															enable_nlist = .false.,&
-															benchmark = .false.
+															benchmark = .false.,&
+                                                            orientational_deconvolution = .false.,&
+                                                            up_orientation = .false.
 
 ! binderFile - file name (binder file)
 ! output - file name (user defined prefix for the output files)
@@ -826,6 +828,12 @@ subroutine evaluate_switches
 			case('g')
 				nocheck = .true.
 				i = i + 1
+            case('z')
+                orientational_deconvolution = .true.
+                i = i + 1
+            case('u')
+                up_orientation = .true.
+                i = i + 1
 			case('f')
 				call getSwitchReal(i, op, rl)
 				if(rl > 0) then
@@ -1346,6 +1354,23 @@ subroutine fill_A_M(time_index)
 		D(1,:,2) = cross_product(D(1,:,3),D(1,:,1))
 		!!!!!!!!!!! y(2) !!!!!!!!!!
 		D(2,:,2) = cross_product(D(2,:,3),D(2,:,1))
+
+        !here just update binder based on some user option up/down
+        if(orientational_deconvolution == .true.) then
+            h1 = h1 + h2
+            scalar = dot_product(h1, (/0.0d0, 0.0d0, 1.0d0/))
+            
+            if(up_orientation == .true.) then
+                if(scalar <= 0.0d0) then
+                    binder_in_time(m, time_index) = .false.
+                end if
+            else
+                if(scalar >= 0.0d0) then
+                    binder_in_time(m, time_index) = .false.
+                end if
+            end if
+
+        end if
 		
 		!!!!!!!!!!!-----calculating vz-----!!!!!!!!!!!!!!
 		h1 = fr%molecule(m)%h1%velocity - fr%molecule(m)%o%velocity
@@ -1354,7 +1379,7 @@ subroutine fill_A_M(time_index)
 		h2 = fr%molecule(m)%h2%velocity - fr%molecule(m)%o%velocity
 		vz(2)= dot_product(h2,D(2,:,3)) 
 		!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-		
+
 		! hydroxyls being evaluated -> only first "water molecule" bond
 		if(fr%is_hydroxyl()) then
 			b = 1
